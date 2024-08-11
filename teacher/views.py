@@ -444,10 +444,19 @@ class LessonViewset(ViewSet):
             return Response(status=400)
         date = datetime.strptime(date, '%Y-%m-%d')
         sw = date - timedelta(days=date.weekday())
+
+        filters = {
+            "registration__teacher__user_id": request.user.id,
+            "booked_datetime__range": [sw, sw + timedelta(days=6)],
+            }
+        status = request.GET.get('status', None)
+        if status == "pending":
+            filters['status'] = "PEN"
+        elif status == "confirm":
+            filters['status'] = "CON"
         value = {}
         lessons = Lesson.objects.select_related("registration__student__user").filter(
-                registration__teacher__user_id=request.user.id,
-                booked_datetime__range=[sw, sw + timedelta(days=6)]
+                **filters
             ).order_by("booked_datetime")
         for i in range(6):
             filtlessons = [lesson for lesson in lessons if lesson.booked_datetime.date() == sw.date()]
