@@ -216,7 +216,7 @@ class LessonViewset(ViewSet):
         lessons = Lesson.objects.select_related("registration__student__user").filter(
                 **filters
             ).order_by("booked_datetime")
-        for i in range(6):
+        for i in range(7):
             filtlessons = [lesson for lesson in lessons if lesson.booked_datetime.date() == sw.date()]
             ser = ListLessonSerializer(instance=filtlessons, many=True)        
             value[sw.strftime('%Y-%m-%d')] = ser.data

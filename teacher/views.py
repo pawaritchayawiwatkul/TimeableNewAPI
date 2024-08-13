@@ -90,13 +90,13 @@ class UnavailableTimeViewset(ViewSet):
 
     def remove(self, request, code):
         try:
-            UnavailableTimeRegular.objects.get(code=code, teacher__user_id=request.user.id)
+            unavailable = UnavailableTimeRegular.objects.get(code=code, teacher__user_id=request.user.id)
         except UnavailableTimeRegular.DoesNotExist:
             try:
-                UnavailableTimeOneTime.objects.get(code=code, teacher__user_id=request.user.id)
+                unavailable = UnavailableTimeOneTime.objects.get(code=code, teacher__user_id=request.user.id)
             except UnavailableTimeOneTime.DoesNotExist:
                 return Response(status=400)
-
+        unavailable.delete()
         return Response()
     
 @permission_classes([IsAuthenticated])
@@ -458,7 +458,7 @@ class LessonViewset(ViewSet):
         lessons = Lesson.objects.select_related("registration__student__user").filter(
                 **filters
             ).order_by("booked_datetime")
-        for i in range(6):
+        for i in range(7):
             filtlessons = [lesson for lesson in lessons if lesson.booked_datetime.date() == sw.date()]
             ser = ListLessonSerializer(instance=filtlessons, many=True)        
             value[sw.strftime('%Y-%m-%d')] = ser.data
