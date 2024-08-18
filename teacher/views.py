@@ -553,7 +553,7 @@ class LessonViewset(ViewSet):
                 start_ = lesson.booked_datetime
                 stop_ = start_ + timedelta(minutes=regis.course.duration)
                 if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
-                    return Response({"error": "Invalid Time"}, status=400)
+                    return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
