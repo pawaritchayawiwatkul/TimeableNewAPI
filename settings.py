@@ -38,6 +38,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+TIME_ZONE = 'Asia/Bangkok'  # Set this to your desired timezone
+
+USE_TZ = True
 
 # Application definition
 

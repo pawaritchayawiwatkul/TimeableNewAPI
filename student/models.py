@@ -51,7 +51,8 @@ class Student(models.Model):
 
 class Lesson(models.Model):
     STATUS_CHOICES = [
-        ('PEN', 'Pending'),
+        ('PENTE', 'PendingTeacher'),
+        ('PENST', 'PendingStudent'),
         ('CON', 'Confirmed'),
         ('COM', 'Completed'),
         ('CAN', 'Canceled'),
@@ -62,7 +63,7 @@ class Lesson(models.Model):
     booked_datetime = models.DateTimeField()
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE, related_name="lesson")
     code = models.CharField(max_length=12, unique=True)
-    status = models.CharField(choices=STATUS_CHOICES, max_length=3, default="PEN")
+    status = models.CharField(choices=STATUS_CHOICES, max_length=5, default="PENTE")
 
     def generate_unique_code(self, length=8):
         """Generate a unique random code."""

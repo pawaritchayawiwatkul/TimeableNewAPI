@@ -22,6 +22,7 @@ from firebase_admin.messaging import Message, Notification
 import boto3
 from botocore.exceptions import ClientError
 import os
+import pytz
 
 @permission_classes([IsAuthenticated])
 class UnavailableTimeViewset(ViewSet):
@@ -236,10 +237,10 @@ class RegistrationViewset(ViewSet):
         if not date_str:
             return Response({"error_messages": ["Please Provide Date"]}, status=400)
         try:
-            date = datetime.strptime(date_str, "%Y-%m-%d")
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
-        day_number = date.weekday() + 1
+        day_number = date_obj.weekday() + 1
         regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
             Prefetch(
                 "teacher__unavailable_reg",
@@ -251,32 +252,50 @@ class RegistrationViewset(ViewSet):
             Prefetch(
                 "teacher__unavailable_once",
                 queryset=UnavailableTimeOneTime.objects.filter(
-                    date=date
+                    date=date_obj
                 ).only("start", "stop"),
                 to_attr="once"
             ),
         ).get(uuid=code)
         booked_lessons = Lesson.objects.filter(
-            status="CON",
+            status__in=["CON", "PENTE", "PENST"],
             registration__teacher=regis.teacher,
-            booked_datetime__date=date
-        ).annotate(time=Func(
-            F('booked_datetime'),
-            Value('HH:MM:SS'),
-            function='to_char',
-            output_field=CharField()
-        )).values_list("time", flat=True)
+            booked_datetime__date=date_obj
+        )
 
-        unavailable_regular = UnavailableTimeSerializer(regis.teacher.regular, many=True).data
-        unavailable_times = UnavailableTimeSerializer(regis.teacher.once, many=True).data
+        unavailables = regis.teacher.regular + regis.teacher.once
+        duration = timedelta(minutes=regis.course.duration)
+        interval = timedelta(minutes=30)
+
+        available_times = []
+        current_time = timezone.make_aware(datetime.combine(date_obj, regis.teacher.school.start))
+        stop_time = timezone.make_aware(datetime.combine(date_obj, regis.teacher.school.stop))
+        while current_time + duration <= stop_time:
+            end_time = current_time + duration
+            
+            is_available = True
+            for unavailable in unavailables:
+                start_ = timezone.make_aware(datetime.combine(date_obj, unavailable.start))
+                stop_ = timezone.make_aware(datetime.combine(date_obj, unavailable.stop))
+                if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
+                    is_available = False
+                    break
+            for lesson in booked_lessons:
+                start_ = lesson.booked_datetime
+                stop_ = start_ + timedelta(minutes=regis.course.duration)
+                if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
+                    is_available = False
+                    break
+            if is_available:
+                available_times.append({
+                    "start": current_time.strftime("%H:%M:%S"),
+                    "end": end_time.strftime("%H:%M:%S")
+                })
+            
+            current_time += interval
+
         return Response(data={
-            "booked_lessons": {
-                "time": list(booked_lessons),
-                "duration": regis.course.duration
-            },
-            "unavailable": list(unavailable_regular) + list(unavailable_times),
-            "start": regis.teacher.school.start,
-            "stop": regis.teacher.school.stop,
+            "availables":available_times
         })
     
 
@@ -344,7 +363,7 @@ class LessonViewset(ViewSet):
     
     def confirm(self, request, code):
         try:
-            lesson = Lesson.objects.select_related("registration__course", "registration__student").get(code=code, registration__teacher__user__id=request.user.id, status="PEN")
+            lesson = Lesson.objects.select_related("registration__course", "registration__student").get(code=code, registration__teacher__user__id=request.user.id, status="PENTE")
         except Lesson.DoesNotExist:
             return Response({'failed': "No Lesson matches the given query."}, status=200)
         lesson.status = 'CON'
@@ -417,7 +436,7 @@ class LessonViewset(ViewSet):
             "registration__teacher__user_id": request.user.id
         }
         if status == "pending":
-            filters['status'] = "PEN"
+            filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
             filters['status'] = "CON"
         try:
@@ -451,7 +470,7 @@ class LessonViewset(ViewSet):
             }
         status = request.GET.get('status', None)
         if status == "pending":
-            filters['status'] = "PEN"
+            filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
             filters['status'] = "CON"
         value = {}
@@ -475,7 +494,7 @@ class LessonViewset(ViewSet):
             "booked_datetime__date": date,
             }
         if status == "pending":
-            filters['status'] = "PEN"
+            filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
             filters['status'] = "CON"
         lessons = Lesson.objects.select_related("registration__student__user").filter(
@@ -487,8 +506,54 @@ class LessonViewset(ViewSet):
     def create(self, request):
         data = dict(request.data)
         data["teacher_id"] = request.user.id
+        registration_id = data.pop("registration_id")
+        booked_date = datetime.strptime(data["booked_datetime"], "%Y-%m-%dT%H:%M:%SZ")
+        day_number = booked_date.weekday() + 1
+        try:
+            regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
+                    Prefetch(
+                        "teacher__unavailable_reg",
+                        queryset=UnavailableTimeRegular.objects.filter(
+                            day=str(day_number)
+                        ).only("start", "stop"),
+                        to_attr="regular"
+                    ),
+                    Prefetch(
+                        "teacher__unavailable_once",
+                        queryset=UnavailableTimeOneTime.objects.filter(
+                            date=booked_date
+                        ).only("start", "stop"),
+                        to_attr="once"
+                    ),
+                ).get(uuid=registration_id, teacher__user_id=request.user.id)
+            data['registration'] = regis.pk
+        except CourseRegistration.DoesNotExist:
+            return Response({"error": "Invalid Course UUID"})
+        
         ser = LessonSerializer(data=data)
         if ser.is_valid():
+            booked_lessons = Lesson.objects.filter(
+                status__in=["CON", "PENTE", "PENST"],
+                registration__teacher=regis.teacher,
+                booked_datetime__date=booked_date
+            )
+            unavailables = regis.teacher.regular + regis.teacher.once
+            start_time = timezone.make_aware(booked_date)
+            end_time = start_time + timedelta(minutes=regis.course.duration)
+            school_start = timezone.make_aware(datetime.combine(start_time, regis.course.school.start))
+            school_close = timezone.make_aware(datetime.combine(start_time, regis.course.school.stop))
+            if not (school_start <= start_time < school_close) or not (school_start <= end_time <= school_close):
+                return Response({"error": "Not in operating Time"}, status=400)
+            for unavailable in unavailables:
+                start_ = timezone.make_aware(datetime.combine(start_time, unavailable.start))
+                stop_ = timezone.make_aware(datetime.combine(start_time, unavailable.stop))
+                if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
+                    return Response({"error": "Invalid Time"}, status=400)
+            for lesson in booked_lessons:
+                start_ = lesson.booked_datetime
+                stop_ = start_ + timedelta(minutes=regis.course.duration)
+                if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
+                    return Response({"error": "Invalid Time"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:

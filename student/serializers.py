@@ -79,29 +79,19 @@ class CourseRegistrationSerializer(serializers.Serializer):
             })
         return attrs
 
-class LessonSerializer(serializers.Serializer):
-    registration_id = serializers.CharField()
+class LessonSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(max_length=300)
-    student_id = serializers.IntegerField()
-    booked_datetime = serializers.DateTimeField() # YYYY-MM-DDThh:mm[:ss[.uuuuuu]][+HH:MM|-HH:MM|Z].
-    # Should we add a feature that prevents booking lesser than 1 day in advance?? [ ASK CUSTOMER ]
+    # booked_datetime = serializers.DateTimeField() # YYYY-MM-DDThh:mm[:ss[.uuuuuu]][+HH:MM|-HH:MM|Z].
+
+    class Meta:
+        model = Lesson
+        fields = ("booked_datetime", "registration", "notes")
+
     def create(self, validated_data):
         return Lesson.objects.create(**validated_data)
 
     def validate(self, attrs):
-        user_id = attrs.pop("student_id")
-        registration_id = attrs.pop("registration_id")
-        try: 
-            course = CourseRegistration.objects.get(uuid=registration_id, student__user_id=user_id)
-            attrs['registration_id'] = course.id
-        except Student.DoesNotExist:
-            raise serializers.ValidationError({
-                'student_id': 'User not found'
-            })
-        except CourseRegistration.DoesNotExist:
-            raise serializers.ValidationError({
-                'registration_id': 'Teacher not found'
-            })
+        attrs['status'] = "PENTE"
         return attrs
 
 class ProfileSerializer(serializers.ModelSerializer):
