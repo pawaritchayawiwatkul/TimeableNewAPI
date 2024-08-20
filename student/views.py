@@ -13,7 +13,7 @@ from django.db.models import Count, F, Func, Value, CharField, Prefetch
 from datetime import datetime
 from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from django.core.exceptions import ValidationError
-from student.serializers import UnavailableTimeSerializer, ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
+from student.serializers import ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
 from dateutil.relativedelta import relativedelta
 from collections import defaultdict

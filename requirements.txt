@@ -14,3 +14,4 @@ fcm-django==2.2.1
 python-dotenv==1.0.1
 django-crontab==0.7.1
 crontab==1.0.1
+pytz==2023.3.post1
