@@ -44,6 +44,10 @@ lessonCancelView = views.LessonViewset.as_view({
     'put': 'cancel',
 })
 
+lessonConfirmView = views.LessonViewset.as_view({
+    'put': 'confirm',
+})
+
 teacherListView = views.TeacherViewset.as_view({
     'get': 'list',
 })
@@ -77,6 +81,7 @@ urlpatterns = format_suffix_patterns([
     path('lesson/week', lessonWeekView, name='lesson-week'),
     path('lesson/recent', lessonRecentView, name='lesson-recent'),
     path('lesson/<slug:code>/cancel', lessonCancelView, name='course-detail'),
+    path('lesson/<slug:code>/confirm', lessonConfirmView, name='course-detail'),
 
     path('teacher/', teacherListView, name='lesson-day'),
     path('teacher/<slug:code>/favorite', teacherFavView, name='lesson-fav'),

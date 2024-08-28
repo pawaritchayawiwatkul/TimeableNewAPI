@@ -4,9 +4,8 @@ from rest_framework.decorators import permission_classes
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from teacher.models import Teacher, TeacherCourses
-from teacher.serializers import SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, CourseRegistrationSerializer, ListLessonSerializer
+from teacher.serializers import SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
 from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson
-from school.models import School
 from django.core.exceptions import ValidationError
 from rest_framework.views import Response
 from rest_framework.permissions import IsAuthenticated
@@ -16,13 +15,10 @@ from django.db.models import Prefetch
 from utils import merge_schedule
 from django.utils import timezone
 from datetime import datetime, timedelta
-from django.db.models import Count, F, Func, Value, CharField, Prefetch
+from django.db.models import Prefetch
 from fcm_django.models import FCMDevice
 from firebase_admin.messaging import Message, Notification
-import boto3
-from botocore.exceptions import ClientError
-import os
-import pytz
+
 
 @permission_classes([IsAuthenticated])
 class UnavailableTimeViewset(ViewSet):
@@ -349,11 +345,11 @@ class LessonViewset(ViewSet):
         lesson.status = 'CAN'
         lesson.save()
         
-        devices = FCMDevice.objects.filter(user=lesson.registration.student.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.student.user_id)
         devices.send_message(
                 message = Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Canceled!",
+                        title=f"Lesson Canceled!",
                         body=f'Your lesson with {request.user.first_name} has been canceled. We apologize for any inconvenience.'
                     ),
                 ),
@@ -369,7 +365,7 @@ class LessonViewset(ViewSet):
         lesson.status = 'CON'
         lesson.save()
 
-        devices = FCMDevice.objects.filter(user=lesson.registration.student.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.student.user_id)
         devices.send_message(
                 message =Message(
                     notification=Notification(
@@ -395,11 +391,11 @@ class LessonViewset(ViewSet):
         lesson.registration.used_lessons += 1
         lesson.registration.save()
 
-        devices = FCMDevice.objects.filter(user=lesson.registration.student.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.student.user_id)
         devices.send_message(
                 message =Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Attended!",
+                        title=f"Lesson Attended!",
                         body=f'Your lesson with {request.user.first_name} on [Date] at [Time] has been attended.'
                     ),
                 ),
@@ -419,11 +415,11 @@ class LessonViewset(ViewSet):
         lesson.status = 'MIS'
         lesson.save()
 
-        devices = FCMDevice.objects.filter(user=lesson.registration.student.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.student.user_id)
         devices.send_message(
                 message =Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Missed!",
+                        title=f"Lesson Missed!",
                         body=f'Your missed a lesson with {request.user.first_name} on [Date] at [Time].'
                     ),
                 ),
@@ -555,6 +551,16 @@ class LessonViewset(ViewSet):
                 if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
                     return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
+
+            devices = FCMDevice.objects.filter(user_id=regis.teacher.user_id)
+            devices.send_message(
+                    message=Message(
+                        notification=Notification(
+                            title=f"Lesson Requested!",
+                            body=f'Your lesson with {request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")} has been requested.'
+                        ),
+                    ),
+                )
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)

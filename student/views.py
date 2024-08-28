@@ -1,22 +1,17 @@
 from rest_framework.views import Response
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework.decorators import api_view
-from rest_framework.authentication import SessionAuthentication, BasicAuthentication
+from rest_framework.decorators import permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
-from student.models import CourseRegistration, Student, Course, Lesson, StudentTeacherRelation
+from student.models import CourseRegistration, Student, Lesson, StudentTeacherRelation
 from teacher.models import UnavailableTimeOneTime, UnavailableTimeRegular, Teacher
 from django.utils import timezone
 from datetime import timedelta, datetime
-from django.db.models import Count, F, Func, Value, CharField, Prefetch
+from django.db.models import  Prefetch
 from datetime import datetime
-from django.db.models.functions import ExtractWeek, Extract, ExtractMonth
 from django.core.exceptions import ValidationError
 from student.serializers import ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
-from dateutil.relativedelta import relativedelta
-from collections import defaultdict
 from fcm_django.models import FCMDevice
 from firebase_admin.messaging import Message, Notification
 
@@ -192,12 +187,12 @@ class LessonViewset(ViewSet):
         lesson.status = 'CON'
         lesson.save()
 
-        devices = FCMDevice.objects.filter(user=lesson.registration.teacher.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.teacher.user_id)
         devices.send_message(
                 message =Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Confirmed!",
-                        body=f'Your lesson with {request.user.first_name} on [Date] at [Time] has been confirmed. Get ready to learn and excel!'
+                        title=f"Lesson Confirmed!",
+                        body=f'Your lesson with {request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")} has been confirmed.'
                     ),
                 ),
             )
@@ -331,6 +326,17 @@ class LessonViewset(ViewSet):
                 if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
                     return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
+
+            devices = FCMDevice.objects.filter(user_id=regis.teacher.user_id)
+            devices.send_message(
+                    message=Message(
+                        notification=Notification(
+                            title=f"Lesson Requested!",
+                            body=f'Your lesson with {request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")} has been requested.'
+                        ),
+                    ),
+                )
+            print(regis)
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)
@@ -354,12 +360,12 @@ class LessonViewset(ViewSet):
         lesson.status = 'CAN'
         lesson.save()
         
-        devices = FCMDevice.objects.filter(user=lesson.registration.teacher.user_id)
+        devices = FCMDevice.objects.filter(user_id=lesson.registration.teacher.user_id)
         devices.send_message(
                 message = Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Canceled!",
-                        body=f'Your lesson with {request.user.first_name} has been canceled. We apologize for any inconvenience.'
+                        title=f"Lesson Canceled!",
+                        body=f'Your lesson with {request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")} has been canceled.'
                     ),
                 ),
             )

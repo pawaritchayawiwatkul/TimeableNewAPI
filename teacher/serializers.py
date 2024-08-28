@@ -175,6 +175,7 @@ class ListCourseRegistrationSerializer(serializers.ModelSerializer):
 
 class ProfileSerializer(serializers.ModelSerializer):
     uuid = serializers.UUIDField(read_only=True)
+    is_teacher = serializers.BooleanField(read_only=True)
     
     class Meta:
         model = User
