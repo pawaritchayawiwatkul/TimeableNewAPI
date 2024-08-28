@@ -42,7 +42,7 @@ class ProfileViewSet(ViewSet):
             student.teacher.add(teacher)
             student.school.add(teacher.school_id)        
         return Response(status=200)
-    
+        
 @permission_classes([IsAuthenticated])
 class TeacherViewset(ViewSet):
     def list(self, request):

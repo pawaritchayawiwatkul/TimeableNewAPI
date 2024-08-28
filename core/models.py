@@ -50,6 +50,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         null=True
     )
     uuid = UUIDField(default=uuid.uuid4, editable=False, unique=True)
+
     is_teacher = BooleanField(default=True)
     is_admin = BooleanField(default=False)
     is_staff = BooleanField(

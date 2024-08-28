@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.urls import path, include
-import djoser
+from core.views import DeviceViewSet
 import settings as settings
 from django.conf.urls.static import static
 from fcm_django.api.rest_framework import FCMDeviceAuthorizedViewSet
@@ -28,7 +28,9 @@ urlpatterns = [
     path('teacher/', include('teacher.urls', namespace='teacher')),
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
-    path('devices', FCMDeviceAuthorizedViewSet.as_view({'post': 'create'}), name='create_fcm_device'),
+    # path('devices', FCMDeviceAuthorizedViewSet.as_view({'post': 'create'}), name='create_fcm_device'),
+    path('devices', DeviceViewSet.as_view({'delete': 'remove', 'post': 'create'}), name='create_fcm_device'),
+    path('notification', DeviceViewSet.as_view({'put': 'update'}), name='create_fcm_device'),
 
     path("__debug__/", include("debug_toolbar.urls")),
 ]
