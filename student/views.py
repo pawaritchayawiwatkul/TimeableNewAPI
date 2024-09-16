@@ -42,7 +42,11 @@ class ProfileViewSet(ViewSet):
             student.teacher.add(teacher)
             student.school.add(teacher.school_id)        
         return Response(status=200)
-        
+    
+    def destroy(self, request):
+        request.user.delete()
+        return Response(status=200)
+    
 @permission_classes([IsAuthenticated])
 class TeacherViewset(ViewSet):
     def list(self, request):
@@ -181,7 +185,7 @@ class CourseViewset(ViewSet):
 class LessonViewset(ViewSet):
     def confirm(self, request, code):
         try:
-            lesson = Lesson.objects.select_related("registration__course", "registration__teacher").get(code=code, registration__teacher__user__id=request.user.id, status="PENST")
+            lesson = Lesson.objects.select_related("registration__course", "registration__teacher").get(code=code, registration__student__user__id=request.user.id, status="PENST")
         except Lesson.DoesNotExist:
             return Response({'failed': "No Lesson matches the given query."}, status=200)
         lesson.status = 'CON'
@@ -191,8 +195,8 @@ class LessonViewset(ViewSet):
         devices.send_message(
                 message =Message(
                     notification=Notification(
-                        title=f"Lesson Confirmed!",
-                        body=f'Your lesson with {request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")} has been confirmed.'
+                        title=f"Lesson Confirmed",
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )
@@ -273,6 +277,27 @@ class LessonViewset(ViewSet):
         ser = ListLessonSerializer(instance=lessons, many=True)
         return Response(ser.data)
     
+    def list(self, request):
+        filters = {
+            "registration__student__user_id": request.user.id,
+            }
+        
+        date = request.GET.get('date', None)
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d')
+            filters['booked_datetime__gte'] = date
+        
+        status = request.GET.get('status', None)
+        if status == "pending":
+            filters['status__in'] = ["PENTE", "PENST"]
+        elif status == "confirm":
+            filters['status'] = "CON"
+        lessons = Lesson.objects.select_related("registration__teacher__user").filter(
+                **filters
+            ).order_by("booked_datetime")
+        ser = ListLessonSerializer(instance=lessons, many=True)
+        return Response(ser.data)
+        
     def create(self, request):
         data = dict(request.data)
         data["student_id"] = request.user.id
@@ -331,8 +356,8 @@ class LessonViewset(ViewSet):
             devices.send_message(
                     message=Message(
                         notification=Notification(
-                            title=f"Lesson Requested!",
-                            body=f'Your lesson with {request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")} has been requested.'
+                            title=f"Lesson Requested",
+                            body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                         ),
                     ),
                 )
@@ -364,8 +389,8 @@ class LessonViewset(ViewSet):
         devices.send_message(
                 message = Message(
                     notification=Notification(
-                        title=f"Lesson Canceled!",
-                        body=f'Your lesson with {request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")} has been canceled.'
+                        title=f"Lesson Canceled",
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )

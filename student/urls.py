@@ -58,7 +58,8 @@ teacherFavView = views.TeacherViewset.as_view({
 
 profileView = views.ProfileViewSet.as_view({
     'get': 'retrieve',
-    'put': 'update'
+    'put': 'update',
+    'delete': 'destroy'
 })
 
 profileAddView = views.ProfileViewSet.as_view({

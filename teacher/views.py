@@ -163,6 +163,10 @@ class ProfileViewSet(ViewSet):
             return Response(status=200)
         else:
             return Response(ser.errors, status=400)
+
+    def destroy(self, request):
+        request.user.delete()
+        return Response(status=200)
         
 @permission_classes([IsAuthenticated])
 class SchoolViewSet(ViewSet):
@@ -208,9 +212,9 @@ class StudentViewset(ViewSet):
         fav = request.GET.get("fav", None)
         if fav in ["0", "1"]:
             fav = bool(int(fav))
-            regis = get_object_or_404(StudentTeacherRelation, student__user__uuid=code, teacher__user_id=request.user.id)
-            regis.favorite = bool(int(fav))
-            regis.save()
+            rel = get_object_or_404(StudentTeacherRelation, student__user__uuid=code, teacher__user_id=request.user.id)
+            rel.favorite_student = bool(int(fav))
+            rel.save()
             return Response({"favorite": fav}, status=200)
         else:
             return Response({"error_messages": ["Invalid Request"]}, status=400)
@@ -222,7 +226,7 @@ class RegistrationViewset(ViewSet):
         if fav in ["0", "1"]:
             fav = bool(int(fav))
             regis = get_object_or_404(CourseRegistration, uuid=code, teacher__user_id=request.user.id)
-            regis.favorite = bool(int(fav))
+            regis.teacher_favorite = bool(int(fav))
             regis.save()
             return Response({"favorite": fav}, status=200)
         else:
@@ -350,7 +354,7 @@ class LessonViewset(ViewSet):
                 message = Message(
                     notification=Notification(
                         title=f"Lesson Canceled!",
-                        body=f'Your lesson with {request.user.first_name} has been canceled. We apologize for any inconvenience.'
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )
@@ -369,8 +373,8 @@ class LessonViewset(ViewSet):
         devices.send_message(
                 message =Message(
                     notification=Notification(
-                        title=f"{lesson.registration.course.name} Lesson Confirmed!",
-                        body=f'Your lesson with {request.user.first_name} on [Date] at [Time] has been confirmed. Get ready to learn and excel!'
+                        title=f"Lesson Confirmed",
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )
@@ -396,7 +400,7 @@ class LessonViewset(ViewSet):
                 message =Message(
                     notification=Notification(
                         title=f"Lesson Attended!",
-                        body=f'Your lesson with {request.user.first_name} on [Date] at [Time] has been attended.'
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )
@@ -420,7 +424,7 @@ class LessonViewset(ViewSet):
                 message =Message(
                     notification=Notification(
                         title=f"Lesson Missed!",
-                        body=f'Your missed a lesson with {request.user.first_name} on [Date] at [Time].'
+                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                     ),
                 ),
             )
@@ -479,6 +483,27 @@ class LessonViewset(ViewSet):
             value[sw.strftime('%Y-%m-%d')] = ser.data
             sw += timedelta(days=1)
         return Response(value)
+    
+    def list(self, request):
+        filters = {
+            "registration__teacher__user_id": request.user.id,
+            }
+
+        date = request.GET.get('date', None)
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d')
+            filters['booked_datetime__gte'] = date
+        
+        status = request.GET.get('status', None)
+        if status == "pending":
+            filters['status__in'] = ["PENTE", "PENST"]
+        elif status == "confirm":
+            filters['status'] = "CON"
+        lessons = Lesson.objects.select_related("registration__student__user").filter(
+                **filters
+            ).order_by("booked_datetime")
+        ser = ListLessonSerializer(instance=lessons, many=True)        
+        return Response(ser.data)
     
     def day(self, request):
         date = request.GET.get('date', None)
@@ -557,7 +582,7 @@ class LessonViewset(ViewSet):
                     message=Message(
                         notification=Notification(
                             title=f"Lesson Requested!",
-                            body=f'Your lesson with {request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")} has been requested.'
+                            body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
                         ),
                     ),
                 )

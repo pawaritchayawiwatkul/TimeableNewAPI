@@ -234,8 +234,8 @@ class CourseRegistrationSerializer(serializers.Serializer):
         devices.send_message(
                 message = Message(
                     notification=Notification(
-                        title=f"{course.name} Course Registration Successful!",
-                        body=f'Congratulations! You have successfully registered. You can start your class anytime now, and it will expire on {exp_date}. We look forward to helping you achieve your learning goals!'
+                        title=f"Registration Successful",
+                        body=f"The course {course.name} will expire on {exp_date.strftime('%B %d, %Y')}."
                     ),
                 ),
             )

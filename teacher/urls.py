@@ -4,9 +4,9 @@ from rest_framework.urlpatterns import format_suffix_patterns
 
 app_name = 'teacher'
 
-createLesson = views.LessonViewset.as_view({
+lessonListView = views.LessonViewset.as_view({
     'post': 'create',
-    # 'get': 'list'
+    'get': 'list'
 })
 
 studentAddView = views.StudentViewset.as_view({
@@ -16,7 +16,8 @@ studentAddView = views.StudentViewset.as_view({
 
 profileView = views.ProfileViewSet.as_view({
     'get': 'retrieve',
-    'put': 'update'
+    'put': 'update',
+    'delete': 'destroy'
 })
 
 schoolView = views.SchoolViewSet.as_view({
@@ -48,6 +49,7 @@ courseATview = views.RegistrationViewset.as_view({
 lessonProgressView = views.LessonViewset.as_view({
     "get": "progress",
 })
+
 
 lessonDayView = views.LessonViewset.as_view({
     'get': 'day',
@@ -132,7 +134,7 @@ urlpatterns = format_suffix_patterns([
     path('registration/<slug:code>/favorite', registrationFavView, name='regis-fav'),
     path('registration/<slug:code>/availabletime', courseATview, name='course-available-time'),
 
-    path('lesson/', createLesson, name='lesson'),
+    path('lesson/', lessonListView, name='lesson'),
     path('lesson/day', lessonDayView, name='lesson-day'),
     path('lesson/week', lessonWeekView, name='lesson-week'),
     path('lesson/status/<slug:status>', lessonStatusView, name='lesson'),
@@ -141,7 +143,6 @@ urlpatterns = format_suffix_patterns([
     path('lesson/<slug:code>/confirm', LessonConfirmView, name='lesson-confirm'),
     path('lesson/<slug:code>/missed', LessonMissedView, name='lesson-missed'),
     path('lesson/<slug:code>/attended', LessonAttendView, name='lesson-attended'),
-
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),
     path('unavailable/', blockTimeList, name='block-time'),

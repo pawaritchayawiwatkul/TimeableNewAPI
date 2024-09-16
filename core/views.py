@@ -14,7 +14,7 @@ class DeviceViewSet(FCMDeviceAuthorizedViewSet):
             device_id = request.data.get("device_id")
             if device_id == None:
                 return Response({"error" : "Please Provide Device Id"}, status=400)
-            device = FCMDevice.objects.get(user_id=44, registration_id=device_id)
+            device = FCMDevice.objects.get(user_id=request.user.id, registration_id=device_id)
             device.delete()
             return Response(status=200)
         except FCMDevice.DoesNotExist:

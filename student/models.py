@@ -26,8 +26,8 @@ class CourseRegistration(models.Model):
     student_favorite = models.BooleanField(default=False)
     teacher_favorite = models.BooleanField(default=False)
 
-    teacher = models.ForeignKey(Teacher, on_delete=models.PROTECT)
-    course = models.ForeignKey(to=Course, on_delete=models.PROTECT, related_name="registration")
+    teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
+    course = models.ForeignKey(to=Course, on_delete=models.CASCADE, related_name="registration")
     student = models.ForeignKey(to="Student", on_delete=models.CASCADE, related_name="registration")
     
     def __str__(self) -> str:
