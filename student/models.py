@@ -64,6 +64,7 @@ class Lesson(models.Model):
     registration = models.ForeignKey(to=CourseRegistration, on_delete=models.CASCADE, related_name="lesson")
     code = models.CharField(max_length=12, unique=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=5, default="PENTE")
+    online = models.BooleanField(default=False)
 
     def generate_unique_code(self, length=8):
         """Generate a unique random code."""

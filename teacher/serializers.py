@@ -198,15 +198,16 @@ class ListLessonDateTimeSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "status", "code")
+        fields = ("booked_datetime", "duration", "status", "code", "online")
 
 class LessonSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(max_length=300)
+    online = serializers.BooleanField(required=True)
     # booked_datetime = serializers.DateTimeField() # YYYY-MM-DDThh:mm[:ss[.uuuuuu]][+HH:MM|-HH:MM|Z].
 
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "registration", "notes")
+        fields = ("booked_datetime", "registration", "notes", "online")
 
     def create(self, validated_data):
         return Lesson.objects.create(**validated_data)
@@ -276,4 +277,4 @@ class ListLessonSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Lesson
-        fields = ("booked_datetime", "duration", "student_name", "course_name", "code", "status")
+        fields = ("booked_datetime", "duration", "student_name", "course_name", "code", "status", "online")

@@ -49,7 +49,7 @@ class UserCreateSerializer(BaseUserCreateSerializer):
             ret[key] = value
             ret.fields[key] = field
         return ret
-    
+
     def create(self, validated_data):
         validated_data.pop("uuid", None)
         school_name = validated_data.pop("school_name", None)

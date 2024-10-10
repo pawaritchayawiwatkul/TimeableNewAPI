@@ -577,12 +577,12 @@ class LessonViewset(ViewSet):
                     return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
 
-            devices = FCMDevice.objects.filter(user_id=regis.teacher.user_id)
+            devices = FCMDevice.objects.filter(user_id=regis.student.user_id)
             devices.send_message(
                     message=Message(
                         notification=Notification(
                             title=f"Lesson Requested!",
-                            body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
+                            body=f'{request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")}.'
                         ),
                     ),
                 )

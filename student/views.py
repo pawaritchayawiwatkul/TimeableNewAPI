@@ -356,12 +356,11 @@ class LessonViewset(ViewSet):
             devices.send_message(
                     message=Message(
                         notification=Notification(
-                            title=f"Lesson Requested",
-                            body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
+                            title=f"Lesson Requested!",
+                            body=f'{request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")}.'
                         ),
                     ),
                 )
-            print(regis)
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)
