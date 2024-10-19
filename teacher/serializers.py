@@ -154,6 +154,15 @@ class CourseSerializer(serializers.Serializer):
             })
         return attrs
     
+class StudentSearchSerializer(serializers.ModelSerializer):
+    name = serializers.CharField(source="user.first_name")
+    uuid = serializers.CharField(source="user.uuid")
+    profile_image = serializers.FileField(source="user.profile_image")
+
+    class Meta:
+        model = Student
+        fields = ("name", "uuid", "profile_image")
+
 class ListStudentSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="student.user.first_name")
     phone_number = serializers.CharField(source="student.user.phone_number")

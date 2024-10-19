@@ -32,6 +32,7 @@ courseView = views.CourseViewset.as_view({
 
 courseDetailView = views.CourseViewset.as_view({
     'get': 'retrieve',
+    'delete': 'remove'
 })
 
 courseFavView = views.CourseViewset.as_view({
@@ -91,6 +92,11 @@ studentFavView = views.StudentViewset.as_view({
     'put': 'favorite'
 })
 
+studentSearchView = views.StudentViewset.as_view({
+    'get': 'search'
+})
+
+
 registrationView = views.RegistrationViewset.as_view({
     'get': 'list',
     'post': 'create'
@@ -149,6 +155,7 @@ urlpatterns = format_suffix_patterns([
     path('unavailable/<slug:code>/remove', blockTimeRemove, name='block-time'),
 
     path('student', studentListView, name='student-list'),
+    path('student/search', studentSearchView, name='student-list'),
     path('student/<slug:code>/favorite', studentFavView, name='student-fav'),
     path('student/<slug:code>/add', studentAddView, name='student-add'),
 

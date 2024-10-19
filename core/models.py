@@ -42,7 +42,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = EmailField(unique=True, blank=True)
     first_name = CharField(max_length=255, blank=True)
     last_name = CharField(max_length=255, blank=True)
-    phone_number = CharField(max_length=10, blank=True)
+    phone_number = CharField(max_length=10, blank=True, unique=True)
     password = CharField(max_length=255, blank=True)
     profile_image = models.FileField(
         upload_to=file_generate_upload_path,

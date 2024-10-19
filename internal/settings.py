@@ -99,28 +99,28 @@ WSGI_APPLICATION = 'internal.wsgi.application'
 
 # Use django-environ to parse the connection string
 
-DATABASES = {
-    'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'postgres',
-       'USER': 'postgres',
-       'PASSWORD': 'Pluem9988!',
-       'HOST': 'localhost',
-       'PORT': '5432',
-    }
-}
-
-
 # DATABASES = {
 #     'default': {
-#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#        'NAME': 'railway',
-#        'HOST': 'monorail.proxy.rlwy.net',
+#        'ENGINE': 'django.db.backends.postgresql',
+#        'NAME': 'postgres',
 #        'USER': 'postgres',
-#        'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
-#        'PORT': '15052',
+#        'PASSWORD': 'Pluem9988!',
+#        'HOST': 'localhost',
+#        'PORT': '5432',
 #     }
 # }
+
+
+DATABASES = {
+    'default': {
+       'ENGINE': 'django.db.backends.postgresql_psycopg2',
+       'NAME': 'railway',
+       'HOST': 'monorail.proxy.rlwy.net',
+       'USER': 'postgres',
+       'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
+       'PORT': '15052',
+    }
+}
 
 
 

@@ -4,7 +4,7 @@ from rest_framework.decorators import permission_classes
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from teacher.models import Teacher, TeacherCourses
-from teacher.serializers import SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
+from teacher.serializers import StudentSearchSerializer, SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
 from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson
 from django.core.exceptions import ValidationError
 from rest_framework.views import Response
@@ -124,6 +124,14 @@ class CourseViewset(ViewSet):
         else:
             return Response(ser.errors, status=400)
     
+    def remove(self, request, code):
+        try:
+            tcourse = TeacherCourses.objects.get(teacher__user_id=request.user.id, course__uuid=code)
+            tcourse.delete()
+        except TeacherCourses.DoesNotExist:
+            return Response({"error_messages": ["Invalid UUID"]}, status=400)
+        return Response(status=200)
+
     def retrieve(self, request, code):
         try:
             tcourse = TeacherCourses.objects.select_related("course").prefetch_related(Prefetch('course__registration')).get(teacher__user_id=request.user.id, course__uuid=code)
@@ -202,6 +210,17 @@ class StudentViewset(ViewSet):
             student.teacher.add(teacher)
             student.school.add(teacher.school_id)
         return Response(status=200)
+    
+    def search(self, request):
+        phonenumber = request.GET.get("phone_number", None)
+        if not phonenumber:
+            return Response({"error": "Phone Number Not Given"}, status=400)
+        try:
+            student = Student.objects.get(user__phone_number=phonenumber)
+        except Student.DoesNotExist:
+            return Response({"error": "Student Not Found"}, status=400)
+        ser = StudentSearchSerializer(instance=student)
+        return Response(ser.data, status=200)
     
     def list(self, request):
         students = StudentTeacherRelation.objects.select_related("student__user").filter(teacher__user_id=request.user.id)
