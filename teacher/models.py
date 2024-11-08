@@ -77,4 +77,4 @@ class UnavailableTimeRegular(models.Model):
         if self.code is None or self.code == "":
             self.code = self._generate_unique_code(12)
         super(UnavailableTimeRegular, self).save(*args, **kwargs)
-        
+            

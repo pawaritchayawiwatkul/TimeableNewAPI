@@ -66,6 +66,14 @@ profileAddView = views.ProfileViewSet.as_view({
     'post': 'add'
 })
 
+guestBookingView = views.GuestViewset.as_view({
+    'get': 'booking_screen',
+    'post': 'create_guest_lesson'
+})
+
+guestGetAvailable = views.GuestViewset.as_view({
+    'get': "get_available_time"
+})
 # Enter URL path below
 urlpatterns = format_suffix_patterns([
     path('profile/', profileView, name='profile'),
@@ -83,6 +91,9 @@ urlpatterns = format_suffix_patterns([
     path('lesson/recent', lessonRecentView, name='lesson-recent'),
     path('lesson/<slug:code>/cancel', lessonCancelView, name='course-detail'),
     path('lesson/<slug:code>/confirm', lessonConfirmView, name='course-detail'),
+
+    path('guest/<slug:code>', guestBookingView, name='makeup-lesson'),
+    path('guest/<slug:code>/availability', guestGetAvailable, name='makeup-lesson'),
 
     path('teacher/', teacherListView, name='lesson-day'),
     path('teacher/<slug:code>/favorite', teacherFavView, name='lesson-fav'),

@@ -56,10 +56,6 @@ lessonDayView = views.LessonViewset.as_view({
     'get': 'day',
 })
 
-lessonWeekView = views.LessonViewset.as_view({
-    'get': 'week',
-})
-
 LessonCancelView = views.LessonViewset.as_view({
     'put': 'cancel',
 })
@@ -75,10 +71,6 @@ LessonMissedView = views.LessonViewset.as_view({
 LessonAttendView = views.LessonViewset.as_view({
     'put': 'attended'
 }) 
-
-lessonRecentView = views.LessonViewset.as_view({
-    'get': 'recent',
-})
 
 lessonStatusView = views.LessonViewset.as_view({
     'get': 'status',
@@ -125,6 +117,23 @@ blockTimeList = views.UnavailableTimeViewset.as_view({
 blockTimeRemove = views.UnavailableTimeViewset.as_view({
     'delete': 'remove'
 })
+
+guestListViewSet = views.GuestViewset.as_view({
+    'get': 'list'
+})
+
+guestStatus = views.GuestViewset.as_view({
+    'get': 'status'
+})
+
+guestConfirm = views.GuestViewset.as_view({
+    'put': 'confirm'
+})
+
+guestCancel = views.GuestViewset.as_view({
+    'put': 'cancel'
+})
+
 # Enter URL path below
 urlpatterns = format_suffix_patterns([
     path('profile/', profileView, name='profile'),
@@ -142,17 +151,21 @@ urlpatterns = format_suffix_patterns([
 
     path('lesson/', lessonListView, name='lesson'),
     path('lesson/day', lessonDayView, name='lesson-day'),
-    path('lesson/week', lessonWeekView, name='lesson-week'),
     path('lesson/status/<slug:status>', lessonStatusView, name='lesson'),
-    path('lesson/recent', lessonRecentView, name='lesson-recent'),
     path('lesson/<slug:code>/cancel', LessonCancelView, name='lesson-cancel'),
     path('lesson/<slug:code>/confirm', LessonConfirmView, name='lesson-confirm'),
     path('lesson/<slug:code>/missed', LessonMissedView, name='lesson-missed'),
     path('lesson/<slug:code>/attended', LessonAttendView, name='lesson-attended'),
+
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),
     path('unavailable/', blockTimeList, name='block-time'),
     path('unavailable/<slug:code>/remove', blockTimeRemove, name='block-time'),
+
+    path('guest', guestListViewSet, name='guest-list'),
+    path('guest/status/<slug:status>', guestStatus, name='guest-list'),
+    path('guest/confirm/<slug:code>', guestConfirm, name='guest-confirm'),
+    path('guest/cancel/<slug:code>', guestCancel, name='guest-cancel'),
 
     path('student', studentListView, name='student-list'),
     path('student/search', studentSearchView, name='student-list'),

@@ -1,9 +1,21 @@
 from rest_framework import serializers
-from student.models import Lesson, CourseRegistration, Student, StudentTeacherRelation
+from student.models import Lesson, GuestLesson, CourseRegistration, Student, StudentTeacherRelation
 from teacher.models import Teacher
 from school.models import Course
 from core.models import User
 
+class GuestLessonSerializer(serializers.ModelSerializer):
+    notes = serializers.CharField(max_length=300)
+    online = serializers.BooleanField(required=True)
+
+    class Meta:
+        model = GuestLesson
+        fields = ("notes", "name", "datetime", "duration", "online")
+
+    def validate(self, attrs):
+        attrs['status'] = "PEN"
+        return attrs
+    
 class ListTeacherSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="teacher.user.first_name")
     uuid = serializers.CharField(source="teacher.user.uuid")
@@ -82,7 +94,6 @@ class CourseRegistrationSerializer(serializers.Serializer):
 class LessonSerializer(serializers.ModelSerializer):
     notes = serializers.CharField(max_length=300)
     online = serializers.BooleanField(required=True)
-    # booked_datetime = serializers.DateTimeField() # YYYY-MM-DDThh:mm[:ss[.uuuuuu]][+HH:MM|-HH:MM|Z].
 
     class Meta:
         model = Lesson

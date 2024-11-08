@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from teacher.models import Course, Teacher, TeacherCourses, UnavailableTimeOneTime, UnavailableTimeRegular
-from student.models import StudentTeacherRelation, CourseRegistration, Lesson, Student
+from student.models import GuestLesson, StudentTeacherRelation, CourseRegistration, Lesson, Student
 from school.models import School
 from core.models import User
 import datetime
@@ -245,7 +245,7 @@ class CourseRegistrationSerializer(serializers.Serializer):
                 message = Message(
                     notification=Notification(
                         title=f"Registration Successful",
-                        body=f"The course {course.name} will expire on {exp_date.strftime('%B %d, %Y')}."
+                        body=f"The course {course.name} is registered"
                     ),
                 ),
             )
@@ -287,3 +287,8 @@ class ListLessonSerializer(serializers.ModelSerializer):
     class Meta:
         model = Lesson
         fields = ("booked_datetime", "duration", "student_name", "course_name", "code", "status", "online")
+
+class ListGuestLessonSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GuestLesson
+        fields = ("name", "datetime", "duration", "code", "status", "online", "notes")

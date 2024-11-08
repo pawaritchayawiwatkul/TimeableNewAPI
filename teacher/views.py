@@ -4,15 +4,15 @@ from rest_framework.decorators import permission_classes
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from teacher.models import Teacher, TeacherCourses
-from teacher.serializers import StudentSearchSerializer, SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
-from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson
+from teacher.serializers import ListGuestLessonSerializer, StudentSearchSerializer, SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
+from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson, GuestLesson
 from django.core.exceptions import ValidationError
 from rest_framework.views import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from django.db.models import Prefetch
-from utils import merge_schedule
+from utils import merge_schedule, compute_available_time, is_available
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Prefetch
@@ -276,42 +276,23 @@ class RegistrationViewset(ViewSet):
                 to_attr="once"
             ),
         ).get(uuid=code)
+
         booked_lessons = Lesson.objects.filter(
             status__in=["CON", "PENTE", "PENST"],
             registration__teacher=regis.teacher,
             booked_datetime__date=date_obj
         )
+        
+        guest_lessons = GuestLesson.objects.filter(
+            teacher=regis.teacher,
+            datetime__date=date_obj
+        )
 
         unavailables = regis.teacher.regular + regis.teacher.once
-        duration = timedelta(minutes=regis.course.duration)
-        interval = timedelta(minutes=30)
-
-        available_times = []
-        current_time = timezone.make_aware(datetime.combine(date_obj, regis.teacher.school.start))
-        stop_time = timezone.make_aware(datetime.combine(date_obj, regis.teacher.school.stop))
-        while current_time + duration <= stop_time:
-            end_time = current_time + duration
-            
-            is_available = True
-            for unavailable in unavailables:
-                start_ = timezone.make_aware(datetime.combine(date_obj, unavailable.start))
-                stop_ = timezone.make_aware(datetime.combine(date_obj, unavailable.stop))
-                if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
-                    is_available = False
-                    break
-            for lesson in booked_lessons:
-                start_ = lesson.booked_datetime
-                stop_ = start_ + timedelta(minutes=regis.course.duration)
-                if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
-                    is_available = False
-                    break
-            if is_available:
-                available_times.append({
-                    "start": current_time.strftime("%H:%M:%S"),
-                    "end": end_time.strftime("%H:%M:%S")
-                })
-            
-            current_time += interval
+        duration = regis.course.duration
+        start = regis.teacher.school.start
+        stop = regis.teacher.school.stop
+        available_times = compute_available_time(unavailables, booked_lessons, guest_lessons, date_obj, start, stop, duration)
 
         return Response(data={
             "availables":available_times
@@ -465,43 +446,6 @@ class LessonViewset(ViewSet):
         ser = ListLessonSerializer(instance=lessons, many=True)
         return Response(ser.data, status=200)
     
-    def recent(self, request):
-        filters = {
-            "registration__teacher__user_id": request.user.id
-        }
-        registration_uuid = request.GET.get("registration_uuid")
-        if registration_uuid:
-            filters['registration__uuid'] = registration_uuid
-        lessons = Lesson.objects.select_related("registration__student__user", "registration__course").filter(**filters).order_by("booked_datetime")
-        ser = ListLessonSerializer(instance=lessons, many=True)
-        return Response(ser.data, status=200)
-    
-    def week(self, request):
-        date = request.GET.get('date', None)
-        if not date:
-            return Response(status=400)
-        date = datetime.strptime(date, '%Y-%m-%d')
-        sw = date - timedelta(days=date.weekday())
-
-        filters = {
-            "registration__teacher__user_id": request.user.id,
-            "booked_datetime__range": [sw, sw + timedelta(days=6)],
-            }
-        status = request.GET.get('status', None)
-        if status == "pending":
-            filters['status__in'] = ["PENTE", "PENST"]
-        elif status == "confirm":
-            filters['status'] = "CON"
-        value = {}
-        lessons = Lesson.objects.select_related("registration__student__user").filter(
-                **filters
-            ).order_by("booked_datetime")
-        for i in range(7):
-            filtlessons = [lesson for lesson in lessons if lesson.booked_datetime.date() == sw.date()]
-            ser = ListLessonSerializer(instance=filtlessons, many=True)        
-            value[sw.strftime('%Y-%m-%d')] = ser.data
-            sw += timedelta(days=1)
-        return Response(value)
     
     def list(self, request):
         filters = {
@@ -577,23 +521,16 @@ class LessonViewset(ViewSet):
                 registration__teacher=regis.teacher,
                 booked_datetime__date=booked_date
             )
+            guest_lessons = GuestLesson.objects.filter(
+                teacher=regis.teacher,
+                datetime__date=booked_date
+            )
             unavailables = regis.teacher.regular + regis.teacher.once
-            start_time = timezone.make_aware(booked_date)
-            end_time = start_time + timedelta(minutes=regis.course.duration)
-            school_start = timezone.make_aware(datetime.combine(start_time, regis.course.school.start))
-            school_close = timezone.make_aware(datetime.combine(start_time, regis.course.school.stop))
-            if not (school_start <= start_time < school_close) or not (school_start <= end_time <= school_close):
-                return Response({"error": "Not in operating Time"}, status=400)
-            for unavailable in unavailables:
-                start_ = timezone.make_aware(datetime.combine(start_time, unavailable.start))
-                stop_ = timezone.make_aware(datetime.combine(start_time, unavailable.stop))
-                if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
-                    return Response({"error": "Invalid Time"}, status=400)
-            for lesson in booked_lessons:
-                start_ = lesson.booked_datetime
-                stop_ = start_ + timedelta(minutes=regis.course.duration)
-                if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
-                    return Response({"error": "Invalid Time s"}, status=400)
+            start = regis.course.school.start
+            stop = regis.course.school.stop
+            duration = regis.course.duration
+            if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, start, stop, duration):
+                return Response({"error": "Invalid Time"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
 
             devices = FCMDevice.objects.filter(user_id=regis.student.user_id)
@@ -608,4 +545,63 @@ class LessonViewset(ViewSet):
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)
+
+@permission_classes([IsAuthenticated])   
+class GuestViewset(ViewSet):
+    def cancel(self, request, code):
+        try:
+            lesson = GuestLesson.objects.get(code=code, teacher__user__id=request.user.id)
+        except GuestLesson.DoesNotExist:
+            return Response({'failed': "No Lesson matches the given query."}, status=200)
         
+        lesson.status = 'CAN'
+        lesson.save()
+        
+        return Response({'success': 'Lesson canceled successfully.'}, status=200)
+    
+    def confirm(self, request, code):
+        try:
+            lesson = GuestLesson.objects.get(code=code, teacher__user__id=request.user.id, status="PEN")
+        except GuestLesson.DoesNotExist:
+            return Response({'failed': "No Lesson matches the given query."}, status=200)
+        lesson.status = 'CON'
+        lesson.save()
+        
+        return Response({'success': 'Lesson confirmed successfully.'}, status=200)
+    
+    def status(self, request, status):
+        filters = {
+            "teacher__user_id": request.user.id
+        }
+        if status == "pending":
+            filters['status'] = "PEN"
+        elif status == "confirm":
+            filters['status'] = "CON"
+        try:
+            lessons = GuestLesson.objects.filter(**filters).order_by("datetime")
+        except ValidationError as e:
+            return Response({"error_message": e}, status=400)
+        ser = ListGuestLessonSerializer(instance=lessons, many=True)
+        return Response(ser.data, status=200)
+    
+    def list(self, request):
+        filters = {
+            "teacher__user_id": request.user.id,
+            }
+
+        date = request.GET.get('date', None)
+        if date:
+            date = datetime.strptime(date, '%Y-%m-%d')
+            filters['datetime__gte'] = date
+        
+        status = request.GET.get('status', None)
+        if status == "pending":
+            filters['status'] = "PEN"
+        elif status == "confirm":
+            filters['status'] = "CON"
+        lessons = GuestLesson.objects.filter(
+                **filters
+            ).order_by("datetime")
+        ser = ListGuestLessonSerializer(instance=lessons, many=True)        
+        return Response(ser.data)
+    

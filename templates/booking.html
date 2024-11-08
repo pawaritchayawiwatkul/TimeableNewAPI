@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lesson Booking</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(to bottom right, #e0ffe0, #808080);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            max-width: 400px;
+            padding: 20px 100px;
+            margin: 0 20px;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 128, 0, 0.2);
+            text-align: center;
+        }
+
+        label,
+        input,
+        select,
+        button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #218838;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Book a Lesson</h2>
+
+        <!-- Duration Selection -->
+        <input type="hidden" id="uid" value="{{ uuid }}">
+
+        <label for="duration">Duration (minutes):</label>
+        <input type="number" id="duration" value="60" min="1" required onchange="updateAvailableTimes()">
+
+        <!-- Date Selection -->
+        <label for="date">Select Date:</label>
+        <input type="date" id="date" required onchange="updateAvailableTimes()">
+
+        <!-- Time Selection -->
+        <label for="time">Select Time:</label>
+        <select id="time" required>
+            <option value="">-- Select Available Time --</option>
+        </select>
+
+        <!-- Name Field -->
+        <label for="name">Your Name:</label>
+        <input type="text" id="name" placeholder="Enter your name" required>
+
+        <!-- Mode Selection (Online or Onsite) -->
+        <label for="mode">Select Mode:</label>
+        <select id="mode" required>
+            <option value="">-- Select Mode --</option>
+            <option value="true">Online</option>
+            <option value="false">Onsite</option>
+        </select>
+
+        <!-- Notes Field -->
+        <label for="notes">Notes:</label>
+        <input type="text" id="notes" placeholder="Enter any notes">
+
+        <!-- Booking Button -->
+        <button type="button" onclick="confirmBooking()">Confirm Booking</button>
+    </div>
+
+    <script>
+        // const baseUrl = "http://127.0.0.1:8000";
+        const uuid = document.getElementById("uid").value;
+
+        // Fetch available times based on selected date and duration
+        async function updateAvailableTimes() {
+            const date = document.getElementById("date").value;
+            const duration = document.getElementById("duration").value;
+
+            if (!date || !duration) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/student/guest/${uuid}/availability?date=${date}&duration=${duration}`);
+                const data = await response.json();
+
+                const timeSelect = document.getElementById("time");
+                timeSelect.innerHTML = '<option value="">-- Select Available Time --</option>';
+
+                data.availables.forEach(slot => {
+                    const option = document.createElement("option");
+                    option.value = slot.start; // Use only start time here
+                    option.textContent = `${slot.start} - ${slot.end}`;
+                    timeSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error("Error fetching available times:", error);
+            }
+        }
+
+        // Confirm booking and send the data to the server
+        async function confirmBooking() {
+            const name = document.getElementById("name").value;
+            const date = document.getElementById("date").value;
+            const time = document.getElementById("time").value;
+            const duration = document.getElementById("duration").value;
+            const mode = document.getElementById("mode").value;
+            const notes = document.getElementById("notes").value || "-";
+
+            if (!name || !date || !time || !duration || !mode) {
+                alert("Please fill out all fields.");
+                return;
+            }
+
+            const bookedDatetime = `${date}T${time}Z`;
+
+            const bookingData = {
+                notes: notes,
+                datetime: bookedDatetime,
+                duration: parseInt(duration, 10),
+                online: mode === "true"
+            };
+
+            try {
+                const response = await fetch(`/student/guest/7a5a3744-dc9d-4a2e-b698-b0dc1048b03f`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert("Booking confirmed!");
+                } else {
+                    alert("Error: " + (result.message || "Booking failed"));
+                }
+            } catch (error) {
+                console.error("Error confirming booking:", error);
+                alert("An unexpected error occurred. Please try again.");
+            }
+        }
+    </script>
+</body>
+
+</html>

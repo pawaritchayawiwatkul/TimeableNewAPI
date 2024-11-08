@@ -17,20 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path
 from django.urls import path, include
-from core.views import DeviceViewSet
+from core.views import forgot_password, account_activation, activate_account
+
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('student/', include('student.urls', namespace='student')),
-    path('teacher/', include('teacher.urls', namespace='teacher')),
-    path('auth/', include('djoser.urls')),
-    path('auth/', include('djoser.urls.jwt')),
-    path('auth/', include('core.urls')),
-
-    path('devices', DeviceViewSet.as_view({'delete': 'remove', 'post': 'create'}), name='create_fcm_device'),
-    path('notification', DeviceViewSet.as_view({'put': 'update'}), name='create_fcm_device'),
-
-    path("__debug__/", include("debug_toolbar.urls")),
+    path('password/reset/confirm/<slug:uuid>/<slug:token>/', forgot_password, name='forgot-password'),
+    path('users/activate_request/<slug:uuid>/<slug:token>/', account_activation, name='activation'),
+    # path('users/activate-account/<slug:uuid>/<slug:token>/', activate_account, name='activation'),
 ]
 
 # if settings.DEBUG:
