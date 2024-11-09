@@ -13,9 +13,9 @@ load_dotenv()
 # DJANGO SETUP
 BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-DEBUG = True
+DEBUG = False
 ALLOWED_HOSTS = ["*"]
-# APPEND_SLASH=False 
+APPEND_SLASH=True 
 
 TIME_ZONE = 'Asia/Bangkok'  # Set this to your desired timezone
 USE_TZ = True

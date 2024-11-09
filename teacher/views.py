@@ -592,16 +592,18 @@ class GuestViewset(ViewSet):
         date = request.GET.get('date', None)
         if date:
             date = datetime.strptime(date, '%Y-%m-%d')
-            filters['datetime__gte'] = date
+            filters['datetime__date'] = date
         
         status = request.GET.get('status', None)
         if status == "pending":
             filters['status'] = "PEN"
         elif status == "confirm":
             filters['status'] = "CON"
+            
         lessons = GuestLesson.objects.filter(
                 **filters
             ).order_by("datetime")
         ser = ListGuestLessonSerializer(instance=lessons, many=True)        
         return Response(ser.data)
     
+
