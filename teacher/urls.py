@@ -80,6 +80,9 @@ studentListView = views.StudentViewset.as_view({
     'get': 'list'
 })
 
+studentDetailView = views.StudentViewset.as_view({
+    'put': 'update'
+})
 studentFavView = views.StudentViewset.as_view({
     'put': 'favorite'
 })
@@ -169,6 +172,7 @@ urlpatterns = format_suffix_patterns([
 
     path('student', studentListView, name='student-list'),
     path('student/search', studentSearchView, name='student-list'),
+    path('student/<slug:code>', studentDetailView, name='student-detail'),
     path('student/<slug:code>/favorite', studentFavView, name='student-fav'),
     path('student/<slug:code>/add', studentAddView, name='student-add'),
 

@@ -15,9 +15,9 @@ from django.shortcuts import get_object_or_404
 from fcm_django.models import FCMDevice
 from firebase_admin.messaging import Message, Notification
 from django.shortcuts import render
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework.decorators import api_view
 from utils import is_available, compute_available_time
+from django.core.mail import send_mail
+
 @permission_classes([IsAuthenticated])
 class ProfileViewSet(ViewSet):
     def retrieve(self, request):
@@ -414,9 +414,13 @@ class GuestViewset(ViewSet):
             
             if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, start, stop, duration):
                 return Response({"error": "Invalid Time"}, status=400)
-            
-            ser.create(validated_data=ser.validated_data)
 
+            lesson = ser.create(validated_data=ser.validated_data)
+            email = lesson.email
+            if email != "":
+                formatted_datetime = lesson.datetime.strftime("%Y-%m-%d %H:%M")  # Adjust the format as needed
+                send_mail("Lesson Requested", f"Your lesson on {formatted_datetime} is requested", "hello.timeable@gmail.com", [email], fail_silently=True)
+                
             devices = FCMDevice.objects.filter(user_id=teacher.user_id)
             devices.send_message(
                     message=Message(

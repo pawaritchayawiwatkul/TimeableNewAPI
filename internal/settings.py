@@ -13,7 +13,7 @@ load_dotenv()
 # DJANGO SETUP
 BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = ["*"]
 APPEND_SLASH=True 
 
@@ -76,28 +76,28 @@ WSGI_APPLICATION = 'internal.wsgi.application'
 
 
 # Database
-# DATABASES = {
-#     'default': {
-#        'ENGINE': 'django.db.backends.postgresql',
-#        'NAME': 'postgres',
-#        'USER': 'postgres',
-#        'PASSWORD': 'Pluem9988!',
-#        'HOST': 'localhost',
-#        'PORT': '5432',
-#     }
-# }
-
-
 DATABASES = {
     'default': {
-       'ENGINE': 'django.db.backends.postgresql_psycopg2',
-       'NAME': 'railway',
-       'HOST': 'monorail.proxy.rlwy.net',
+       'ENGINE': 'django.db.backends.postgresql',
+       'NAME': 'postgres',
        'USER': 'postgres',
-       'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
-       'PORT': '15052',
+       'PASSWORD': 'Pluem9988!',
+       'HOST': 'localhost',
+       'PORT': '5432',
     }
 }
+
+
+# DATABASES = {
+#     'default': {
+#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#        'NAME': 'railway',
+#        'HOST': 'monorail.proxy.rlwy.net',
+#        'USER': 'postgres',
+#        'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
+#        'PORT': '15052',
+#     }
+# }
 
 
 AUTH_PASSWORD_VALIDATORS = [
@@ -152,7 +152,7 @@ REST_FRAMEWORK = {
 DJOSER = {
     "LOGIN_FIELD": "email",
     'PASSWORD_RESET_CONFIRM_URL': 'auth/password/reset/confirm/{uid}/{token}/',   
-    'ACTIVATION_URL': 'auth/users/activate_request/{uid}/{token}',
+    # 'ACTIVATION_URL': 'auth/users/activate_request/{uid}/{token}',
     'SERIALIZERS' : {
         'user_create': 'core.serializers.UserCreateSerializer',
         "user": "djoser.serializers.UserSerializer",
@@ -162,8 +162,8 @@ DJOSER = {
     'EMAIL': {
         'password_reset': 'core.email.PasswordResetEmailTemplate'
     },
-    'SEND_ACTIVATION_EMAIL': True,
-    'SEND_CONFIRMATION_EMAIL':True,
+    # 'SEND_ACTIVATION_EMAIL': True,
+    # 'SEND_CONFIRMATION_EMAIL':True,
 }
 
 SEND_ACTIVATION_EMAIL = True

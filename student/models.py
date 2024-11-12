@@ -38,6 +38,9 @@ class StudentTeacherRelation(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="student_relation")
     favorite_teacher = models.BooleanField(default=False)
     favorite_student = models.BooleanField(default=False)
+    student_first_name = models.CharField(default="unknown124")
+    student_last_name = models.CharField(default="unknown124")
+    student_color = models.CharField(default="C7E7DD", max_length=6)
 
 class Student(models.Model):
     course = models.ManyToManyField(to=Course, through=CourseRegistration, related_name="student")
@@ -93,7 +96,8 @@ class GuestLesson(models.Model):
     ]
 
     notes = models.CharField(max_length=300, blank=True)
-    name = models.CharField(max_length=300, blank=True)
+    name = models.CharField(max_length=300)
+    email = models.CharField(max_length=300, blank=True)
     datetime = models.DateTimeField()
     duration = models.IntegerField()
     code = models.CharField(max_length=12, unique=True)

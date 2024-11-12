@@ -154,6 +154,11 @@ class CourseSerializer(serializers.Serializer):
             })
         return attrs
     
+class TeacherStudentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StudentTeacherRelation
+        fields = ("student_color", "student_first_name", "student_last_name")
+
 class StudentSearchSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="user.first_name")
     uuid = serializers.CharField(source="user.uuid")
@@ -164,16 +169,20 @@ class StudentSearchSerializer(serializers.ModelSerializer):
         fields = ("name", "uuid", "profile_image")
 
 class ListStudentSerializer(serializers.ModelSerializer):
-    name = serializers.CharField(source="student.user.first_name")
+    name = serializers.SerializerMethodField()
     phone_number = serializers.CharField(source="student.user.phone_number")
     email = serializers.CharField(source="student.user.email")
     uuid = serializers.CharField(source="student.user.uuid")
     profile_image = serializers.FileField(source="student.user.profile_image")
+    color = serializers.CharField(source="student_color")
 
     class Meta:
         model = StudentTeacherRelation
-        fields = ("name", "phone_number", "email", "uuid", "favorite_student", "profile_image")
+        fields = ("name", "phone_number", "email", "uuid", "favorite_student", "profile_image", "color")
 
+    def get_name(self, obj:StudentTeacherRelation):
+        return f"{obj.student_first_name} {obj.student_last_name}"
+    
 class ListCourseRegistrationSerializer(serializers.ModelSerializer):
     name = serializers.CharField(source="course.name")
     description = serializers.CharField(source="course.description")

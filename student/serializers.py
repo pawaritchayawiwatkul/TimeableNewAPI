@@ -10,7 +10,7 @@ class GuestLessonSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GuestLesson
-        fields = ("notes", "name", "datetime", "duration", "online")
+        fields = ("notes", "name", "datetime", "duration", "online", "email")
 
     def validate(self, attrs):
         attrs['status'] = "PEN"

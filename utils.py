@@ -67,7 +67,6 @@ def compute_available_time(unavailables:List[UnavailableTimeOneTime], lessons:Li
                 break
         for lesson in guest_lessons:
             start_ = lesson.datetime
-            print(start_)
             stop_ = start_ + timedelta(minutes=lesson.duration)
             if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
                 _is_available = False

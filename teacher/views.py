@@ -4,7 +4,7 @@ from rest_framework.decorators import permission_classes
 from rest_framework.viewsets import ViewSet
 from rest_framework.response import Response
 from teacher.models import Teacher, TeacherCourses
-from teacher.serializers import ListGuestLessonSerializer, StudentSearchSerializer, SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
+from teacher.serializers import TeacherStudentUpdateSerializer, ListGuestLessonSerializer, StudentSearchSerializer, SchoolSerializer, UnavailableTimeSerializer, LessonSerializer, TeacherCourseDetailwithStudentSerializer, TeacherCourseDetailSerializer, RegularUnavailableSerializer, OnetimeUnavailableSerializer, UnavailableTimeOneTime, UnavailableTimeRegular, TeacherCourseListSerializer, CourseSerializer, ProfileSerializer, ListStudentSerializer, ListCourseRegistrationSerializer, CourseRegistrationSerializer, ListLessonSerializer
 from student.models import Student, StudentTeacherRelation, CourseRegistration, Lesson, GuestLesson
 from django.core.exceptions import ValidationError
 from rest_framework.views import Response
@@ -18,6 +18,7 @@ from datetime import datetime, timedelta
 from django.db.models import Prefetch
 from fcm_django.models import FCMDevice
 from firebase_admin.messaging import Message, Notification
+from django.core.mail import send_mail
 
 
 @permission_classes([IsAuthenticated])
@@ -189,11 +190,12 @@ class SchoolViewSet(ViewSet):
         
     def update(self, request):
         ser = SchoolSerializer(data=request.data)
-        try:
-            teacher = Teacher.objects.select_related("school").get(user_id=request.user.id).school
-        except:
-            return Response(status=404)
-        if ser.is_valid():
+
+        if ser.is_valid():        
+            try:
+                teacher = Teacher.objects.select_related("school").get(user_id=request.user.id).school
+            except Teacher.DoesNotExist:
+                return Response(status=400)
             school = ser.update(teacher, ser.validated_data)
             return Response(ser.data, status=200)
         else: 
@@ -202,13 +204,35 @@ class SchoolViewSet(ViewSet):
 
 @permission_classes([IsAuthenticated])
 class StudentViewset(ViewSet):
+    def update(self, request, code):
+        ser = TeacherStudentUpdateSerializer(data=request.data)
+        if ser.is_valid():
+            try:
+                student_relation = StudentTeacherRelation.objects.get(
+                    student__user__uuid=code,
+                    teacher__user_id=request.user.id,
+                )
+            except StudentTeacherRelation.DoesNotExist:
+                return Response(status=400)
+            ser.update(student_relation, ser.validated_data)
+            return Response(status=200)
+        else:
+            return Response(ser.errors, status=400)
+    
     def add(self, request, code):
-        student = get_object_or_404(Student, user__uuid=code)
+        try:
+            student = Student.objects.select_related("user").get(user__uuid=code)
+        except:
+            return Response({"error_messages": "Student not found"}, status=400)
         user = request.user
         teacher = get_object_or_404(Teacher, user_id=user.id)
         if not student.teacher.filter(id=student.id).exists():
-            student.teacher.add(teacher)
-            student.school.add(teacher.school_id)
+            StudentTeacherRelation.objects.create(
+                student=student,
+                teacher=teacher,
+                student_first_name=student.user.first_name,
+                student_last_name=student.user.last_name,
+            )
         return Response(status=200)
     
     def search(self, request):
@@ -557,6 +581,8 @@ class GuestViewset(ViewSet):
         lesson.status = 'CAN'
         lesson.save()
         
+        if lesson.email != "":
+            send_mail("Lesson Request Cancel", "Unfortunately the requested was unavailable", "hello.timeable@gmail.com", [lesson.email], fail_silently=True)
         return Response({'success': 'Lesson canceled successfully.'}, status=200)
     
     def confirm(self, request, code):
@@ -567,8 +593,18 @@ class GuestViewset(ViewSet):
         lesson.status = 'CON'
         lesson.save()
         
+        if lesson.email != "":
+            formatted_datetime = lesson.datetime.strftime("%Y-%m-%d %H:%M")  # Adjust the format as needed
+
+            send_mail(
+                "Lesson Request Confirmed",
+                f"Your lesson on {formatted_datetime} is confirmed",
+                "hello.timeable@gmail.com",
+                [lesson.email],
+                fail_silently=True
+            )        
         return Response({'success': 'Lesson confirmed successfully.'}, status=200)
-    
+                
     def status(self, request, status):
         filters = {
             "teacher__user_id": request.user.id
@@ -599,7 +635,7 @@ class GuestViewset(ViewSet):
             filters['status'] = "PEN"
         elif status == "confirm":
             filters['status'] = "CON"
-            
+        
         lessons = GuestLesson.objects.filter(
                 **filters
             ).order_by("datetime")
