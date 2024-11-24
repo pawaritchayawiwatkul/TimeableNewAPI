@@ -6,6 +6,12 @@ from firebase_admin import initialize_app, credentials
 from google.auth import load_credentials_from_file
 import os
 from dotenv import load_dotenv 
+from django.utils.timezone import activate
+from celery.schedules import crontab
+
+import django_celery_beat
+import os 
+os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 load_dotenv() 
 
@@ -13,13 +19,14 @@ load_dotenv()
 # DJANGO SETUP
 BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
-DEBUG = True
+FERNET_KEY =  os.getenv("FERNET_SECRET_KEY")
+DEBUG = False
 ALLOWED_HOSTS = ["*"]
 APPEND_SLASH=True 
 
 TIME_ZONE = 'Asia/Bangkok'  # Set this to your desired timezone
 USE_TZ = True
-
+activate(TIME_ZONE)
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -29,12 +36,14 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    'django_celery_beat',
     'rest_framework',
     'djoser',
     'fcm_django',
     'storages',
 
     'debug_toolbar',
+    'googlecalendar',
     'teacher',
     'student',
     'school',
@@ -99,6 +108,16 @@ DATABASES = {
 #     }
 # }
 
+# DATABASES = {
+#     'default': {
+#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+#        'NAME': 'railway',
+#        'HOST': 'autorack.proxy.rlwy.net',
+#        'USER': 'postgres',
+#        'PASSWORD': 'DfXrqZpmjhvIUPuTjWJHVYEGSrsKERuT',
+#        'PORT': '35576',
+#     }
+# }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -147,8 +166,11 @@ REST_FRAMEWORK = {
     ]
 }
 
-# DJOSER
-
+"""
+=====================================
+DJOSER
+=====================================
+"""
 DJOSER = {
     "LOGIN_FIELD": "email",
     'PASSWORD_RESET_CONFIRM_URL': 'auth/password/reset/confirm/{uid}/{token}/',   
@@ -176,7 +198,12 @@ SIMPLE_JWT = {
 
 AUTH_USER_MODEL = 'core.User'
 
-# Email Integration
+"""
+=====================================
+Email Integration
+=====================================
+"""
+
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
@@ -192,27 +219,38 @@ DEBUG_TOOLBAR_CONFIG = {
 
 
 # STORAGE 
-AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
-
-AWS_S3_REGION_NAME = 'ap-southeast-2'  # e.g., us-east-1
-AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
-AWS_S3_FILE_OVERWRITE = True
-
-STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/'
-
-STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-
-MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
-
 class MediaStorage(S3Boto3Storage):
     location = 'media'
-    file_overwrite = False
+    file_overwrite = True
+    
+if DEBUG == False:
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
 
-DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-AWS_LOCATION = 'static'
+    AWS_S3_REGION_NAME = 'ap-southeast-2'  # e.g., us-east-1
+    AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com'
+    AWS_S3_FILE_OVERWRITE = True
 
+    STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    AWS_LOCATION = 'static'
+else:
+    STATIC_ROOT = os.path.join(BASE_DIR.parent, 'static')
+
+STATIC_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/static/' if DEBUG == False else '/static/'
+MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/' if DEBUG == False else '/media/'
+
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR.parent, 'staticfiles/'),
+]
+
+
+"""
+=====================================
+   Notification System ( Firebase )
+=====================================
+"""
 
 # Notification System ( Firebase )
 class CustomFirebaseCredentials(credentials.ApplicationDefault):
@@ -236,12 +274,33 @@ FCM_DJANGO_SETTINGS = {
     "DELETE_INACTIVE_DEVICES": False,
 }
 
-# CELERY_TIMEZONE = "Asia/Thailand"
-# CELERY_TASK_TRACK_STARTED = True
-# CELERY_TASK_TIME_LIMIT = 30 * 60
-# CELERY_BROKER_URL = 'redis://127.0.0.1:6379'
-# CELERY_RESULT_BACKEND = 'redis://127.0.0.1:6379'
-# CELERY_ACCEPT_CONTENT = ['application/json']
-# CELERY_RESULT_SERIALIZER = 'json'
-# CELERY_TASK_SERIALIZER = 'json'
-# CELERY_STORE_ERRORS_EVEN_IF_IGNORED = True
+# Calendar System
+GOOGLE_CLIENT_SECRET_FILE = os.getenv("GOOGLE_CLIENT_KEY")
+GOOGLE_SCOPES = [
+    "https://www.googleapis.com/auth/calendar",     
+    "https://www.googleapis.com/auth/calendar.events",
+    "https://www.googleapis.com/auth/calendar.readonly"
+    ]
+
+
+# CELERY
+CELERY_BROKER_URL = 'redis://localhost:6379/0'
+CELERY_RESULT_BACKEND = 'redis://localhost:6379/0'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_BEAT_MAX_LOOP_INTERVAL = 1800.0
+
+CELERY_BEAT_SCHEDULE = {
+    'send-notification-every-30-minutes': {
+        'task': 'teacher.tasks.send_lesson_notification',
+        'schedule': crontab(minute='*/30'),  # Executes every 30 minutes
+        'args': (),
+    },
+    'send-guest-notification-every-30-minutes': {
+        'task': 'teacher.tasks.send_guest_lesson_notification',
+        'schedule': crontab(minute='*/30'),  # Executes every 30 minutes
+        'args': (),
+    },
+}
+

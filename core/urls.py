@@ -23,7 +23,6 @@ from core.views import forgot_password, account_activation, activate_account
 urlpatterns = [
     path('password/reset/confirm/<slug:uuid>/<slug:token>/', forgot_password, name='forgot-password'),
     path('users/activate_request/<slug:uuid>/<slug:token>/', account_activation, name='activation'),
-    # path('users/activate-account/<slug:uuid>/<slug:token>/', activate_account, name='activation'),
 ]
 
 # if settings.DEBUG:

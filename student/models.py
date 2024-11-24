@@ -2,11 +2,13 @@ from django.db import models
 from school.models import Course, School
 from core.models import User
 from teacher.models import Teacher
+from django.utils.timezone import make_aware, get_current_timezone
 from uuid import uuid4
 import random
 import string
-# Create your models here.
 
+# Create your models here.
+_timezone = get_current_timezone()
 class CourseRegistration(models.Model):
     STATUS_CHOICES = [
         ('PEN', 'Pending'),
@@ -40,7 +42,7 @@ class StudentTeacherRelation(models.Model):
     favorite_student = models.BooleanField(default=False)
     student_first_name = models.CharField(default="unknown124")
     student_last_name = models.CharField(default="unknown124")
-    student_color = models.CharField(default="C7E7DD", max_length=6)
+    student_color = models.CharField(default="C5E5DB", max_length=6)
 
 class Student(models.Model):
     course = models.ManyToManyField(to=Course, through=CourseRegistration, related_name="student")
@@ -67,7 +69,10 @@ class Lesson(models.Model):
     code = models.CharField(max_length=12, unique=True)
     status = models.CharField(choices=STATUS_CHOICES, max_length=5, default="PENTE")
     online = models.BooleanField(default=False)
-
+    notified = models.BooleanField(default=False)
+    student_event_id = models.CharField(null=True, blank=True)
+    teacher_event_id = models.CharField(null=True, blank=True)
+    
     def generate_unique_code(self, length=8):
         """Generate a unique random code."""
         characters = string.ascii_letters + string.digits
@@ -85,6 +90,7 @@ class Lesson(models.Model):
         if self.code is None or self.code == "":
             self.code = self._generate_unique_code(12)
         super(Lesson, self).save(*args, **kwargs)
+
         
 class GuestLesson(models.Model):
     STATUS_CHOICES = [
@@ -104,15 +110,14 @@ class GuestLesson(models.Model):
     status = models.CharField(choices=STATUS_CHOICES, max_length=3, default="PEN")
     online = models.BooleanField(default=False)
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
-
+    teacher_event_id = models.CharField(null=True, blank=True)
+    notified = models.BooleanField(default=False)
     def generate_unique_code(self, length=8):
-        """Generate a unique random code."""
         characters = string.ascii_letters + string.digits
         code = ''.join(random.choice(characters) for _ in range(length))
         return code
     
     def _generate_unique_code(self, length):
-        """Generate a unique code and ensure it's not already in the database."""
         code = self.generate_unique_code(length)
         while GuestLesson.objects.filter(code=code).exists():
             code = self.generate_unique_code(length)

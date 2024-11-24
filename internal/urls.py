@@ -26,6 +26,7 @@ urlpatterns = [
     path('auth/', include('djoser.urls')),
     path('auth/', include('djoser.urls.jwt')),
     path('auth/', include('core.urls')),
+    path('calendar/', include('googlecalendar.urls')),
 
     path('devices', DeviceViewSet.as_view({'delete': 'remove', 'post': 'create'}), name='create_fcm_device'),
     path('notification', DeviceViewSet.as_view({'put': 'update'}), name='create_fcm_device'),

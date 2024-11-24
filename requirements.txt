@@ -12,5 +12,8 @@ boto3==1.34.145
 django-storages==1.14.2
 fcm-django==2.2.1
 python-dotenv==1.0.1
-crontab==1.0.1
 pytz==2023.3.post1
+celery==5.4.0
+django_celery_beat==2.7.0
+redis==5.2.0
+celery-singleton==0.3.1

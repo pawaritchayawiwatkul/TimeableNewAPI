@@ -12,10 +12,8 @@ from datetime import datetime
 from django.core.exceptions import ValidationError
 from student.serializers import GuestLessonSerializer, ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
-from fcm_django.models import FCMDevice
-from firebase_admin.messaging import Message, Notification
 from django.shortcuts import render
-from utils import is_available, compute_available_time
+from utils import compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event
 from django.core.mail import send_mail
 
 @permission_classes([IsAuthenticated])
@@ -166,22 +164,57 @@ class CourseViewset(ViewSet):
 
 @permission_classes([IsAuthenticated])
 class LessonViewset(ViewSet):
+    def cancel(self, request, code):
+        # Fetch the lesson object ensuring it belongs to the requesting user
+        try:
+            lesson = Lesson.objects.select_related("registration__teacher__user", "registration__course").get(code=code, registration__student__user__id=request.user.id)
+        except Lesson.DoesNotExist:
+            return Response({'success': "No Course Registration matches the given query."}, status=200)
+        # Calculate the difference between now and the lesson's booked datetime
+        now = timezone.now()
+        time_difference = lesson.booked_datetime - now
+
+        # Ensure the cancellation is at least 24 hours before the class
+        if time_difference.total_seconds() >= 24 * 60 * 60:
+            lesson.registration.used_lessons -= 1
+            lesson.registration.save()
+        lesson.status = 'CAN'
+        lesson.save()
+        
+        send_notification(
+            lesson.registration.teacher.user_id, 
+            "Lesson Canceled", 
+            f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
+            )
+        if lesson.student_event_id:
+            delete_google_calendar_event(request.user, lesson.student_event_id)
+        if lesson.teacher_event_id:
+            delete_google_calendar_event(lesson.registration.teacher.user, lesson.teacher_event_id)
+        
+        return Response({'success': 'Lesson canceled successfully.'}, status=200)
+
     def confirm(self, request, code):
         try:
-            lesson = Lesson.objects.select_related("registration__course", "registration__teacher").get(code=code, registration__student__user__id=request.user.id, status="PENST")
+            lesson = Lesson.objects.select_related("registration__course", "registration__teacher__user").get(code=code, registration__student__user__id=request.user.id, status="PENST")
         except Lesson.DoesNotExist:
             return Response({'failed': "No Lesson matches the given query."}, status=200)
         lesson.status = 'CON'
-        lesson.save()
 
-        devices = FCMDevice.objects.filter(user_id=lesson.registration.teacher.user_id)
-        devices.send_message(
-                message =Message(
-                    notification=Notification(
-                        title=f"Lesson Confirmed",
-                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
-                    ),
-                ),
+        finished = lesson.booked_datetime + timedelta(minutes=lesson.registration.course.duration)
+        start_time_str = lesson.booked_datetime.strftime("%Y-%m-%dT%H:%M:%S%z")
+        end_time_str = finished.strftime("%Y-%m-%dT%H:%M:%S%z")
+        t_event_id = create_calendar_event(lesson.registration.teacher.user, summary="Confirmed Lesson ( Teacher | Course )", description="{}", start=start_time_str, end=end_time_str)
+        s_event_id = create_calendar_event(request.user, summary="Confirmed Lesson ( Student | Course )", description="{}", start=start_time_str, end=end_time_str)
+        if s_event_id:
+            lesson.student_event_id = s_event_id
+        if t_event_id:
+            lesson.teacher_event_id = t_event_id
+        lesson.save()
+        
+        send_notification(
+            lesson.registration.teacher.user_id, 
+            "Lesson Confirmed", 
+            f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
             )
         
         return Response({'success': 'Lesson confirmed successfully.'}, status=200)
@@ -323,50 +356,15 @@ class LessonViewset(ViewSet):
                 return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
 
-            devices = FCMDevice.objects.filter(user_id=regis.teacher.user_id)
-            devices.send_message(
-                    message=Message(
-                        notification=Notification(
-                            title=f"Lesson Requested!",
-                            body=f'{request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")}.'
-                        ),
-                    ),
+            send_notification(
+                regis.teacher.user_id, 
+                "Lesson Requested!", 
+                f'{request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")}.'
                 )
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
             return Response(ser.errors, status=400)
         
-    
-    def cancel(self, request, code):
-        # Fetch the lesson object ensuring it belongs to the requesting user
-        try:
-            lesson = Lesson.objects.select_related("registration__teacher__user", "registration__course").get(code=code, registration__student__user__id=request.user.id)
-        except Lesson.DoesNotExist:
-            return Response({'success': "No Course Registration matches the given query."}, status=200)
-        # Calculate the difference between now and the lesson's booked datetime
-        now = timezone.now()
-        time_difference = lesson.booked_datetime - now
-
-        # Ensure the cancellation is at least 24 hours before the class
-        if time_difference.total_seconds() >= 24 * 60 * 60:
-            lesson.registration.used_lessons -= 1
-            lesson.registration.save()
-        lesson.status = 'CAN'
-        lesson.save()
-        
-        devices = FCMDevice.objects.filter(user_id=lesson.registration.teacher.user_id)
-        devices.send_message(
-                message = Message(
-                    notification=Notification(
-                        title=f"Lesson Canceled",
-                        body=f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
-                    ),
-                ),
-            )
-        
-        return Response({'success': 'Lesson canceled successfully.'}, status=200)
-
-
 class GuestViewset(ViewSet):
     def booking_screen(self, request, code):
         return render(request, "booking.html", {"uuid": code})
@@ -396,6 +394,7 @@ class GuestViewset(ViewSet):
                 ).get(user__uuid=code)
                 ser.validated_data['teacher_id'] = teacher.pk
             except Teacher.DoesNotExist:
+                print("invalid uuid")
                 return Response({"Invalid": "UUID"}, status=400)
             name = ser.validated_data.get("name")
             duration = ser.validated_data.get("duration")
@@ -413,6 +412,7 @@ class GuestViewset(ViewSet):
             stop = teacher.school.stop
             
             if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, start, stop, duration):
+                print("invalid time")
                 return Response({"error": "Invalid Time"}, status=400)
 
             lesson = ser.create(validated_data=ser.validated_data)
@@ -421,15 +421,8 @@ class GuestViewset(ViewSet):
                 formatted_datetime = lesson.datetime.strftime("%Y-%m-%d %H:%M")  # Adjust the format as needed
                 send_mail("Lesson Requested", f"Your lesson on {formatted_datetime} is requested", "hello.timeable@gmail.com", [email], fail_silently=True)
                 
-            devices = FCMDevice.objects.filter(user_id=teacher.user_id)
-            devices.send_message(
-                    message=Message(
-                        notification=Notification(
-                            title=f"Lesson Requested!",
-                            body=f'{name} on {booked_date.strftime("%Y-%m-%d")} at {booked_date.strftime("%H:%M")}.'
-                        ),
-                    ),
-                )
+            send_notification(teacher.user_id, "Lesson Requested!", f'{name} on {booked_date.strftime("%Y-%m-%d")} at {booked_date.strftime("%H:%M")}.')
+
             return Response({"booked_date": booked_date}, status=200)
         else:
             return Response(ser.errors, status=400)

@@ -6,6 +6,122 @@ from student.models import Lesson, GuestLesson
 from teacher.models import UnavailableTimeOneTime
 from typing import List
 from rest_framework.response import Response
+from cryptography.fernet import Fernet
+from django.conf import settings
+from fcm_django.models import FCMDevice
+from firebase_admin.messaging import Message, Notification
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+# Generate a key and store it securely (should be done once and stored securely)
+
+fernet = Fernet(settings.FERNET_KEY)
+_timezone =  timezone.get_current_timezone_name()
+
+def delete_google_calendar_event(user, event_id):
+    credentials_data = user.google_credentials
+    if not credentials_data:
+        print("NO CRED")
+        return 
+        
+
+    # Decrypt the credentials
+    try:
+        token = decrypt_token(credentials_data['token'])
+        refresh_token = decrypt_token(credentials_data['refresh_token'])
+    except Exception as e:
+        return 
+
+    # Rebuild the credentials object
+    credentials = Credentials(
+        token=token,
+        refresh_token=refresh_token,
+        token_uri=credentials_data['token_uri'],
+        client_id=credentials_data['client_id'],
+        client_secret=credentials_data['client_secret'],
+        scopes=credentials_data['scopes']
+    )
+    service = build("calendar", "v3", credentials=credentials)
+
+    try:
+        # Delete the event by its eventId
+        print("DELETING")
+        service.events().delete(calendarId=user.google_calendar_id, eventId=event_id).execute()
+        print("CANCEL")
+        return 
+    except Exception as e:
+        print(e)
+        return 
+
+def create_calendar_event(user, summary, description, start, end):
+    credentials_data = user.google_credentials
+    if not credentials_data:
+        return 
+
+    # Decrypt the credentials
+    try:
+        token = decrypt_token(credentials_data['token'])
+        refresh_token = decrypt_token(credentials_data['refresh_token'])
+    except Exception as e:
+        return 
+
+    # Rebuild the credentials object
+    credentials = Credentials(
+        token=token,
+        refresh_token=refresh_token,
+        token_uri=credentials_data['token_uri'],
+        client_id=credentials_data['client_id'],
+        client_secret=credentials_data['client_secret'],
+        scopes=credentials_data['scopes']
+    )
+    service = build("calendar", "v3", credentials=credentials)
+
+    # Event data from the request
+    event = {
+        "summary": summary,
+        "description": description,
+        "start": {
+            "dateTime": start,
+            "timeZone": _timezone,
+        },
+        "end": {
+            "dateTime": end,
+            "timeZone": _timezone,
+        },
+        "reminders": {
+            "useDefault": False,
+            "overrides": [
+                {"method": "email", "minutes": 24 * 60},
+                {"method": "popup", "minutes": 10},
+            ],
+        },
+    }
+    
+    try:
+        created_event = service.events().insert(calendarId=user.google_calendar_id, body=event).execute()
+        return created_event["id"]
+    except Exception as e:
+        pass 
+        
+
+def send_notification(user_id, title, body):
+    devices = FCMDevice.objects.filter(user_id=user_id)
+    devices.send_message(
+            message=Message(
+                notification=Notification(
+                    title=title,
+                    body=body
+                ),
+            ),
+        )
+    
+def encrypt_token(token: str) -> str:
+    encrypted_token = fernet.encrypt(token.encode())
+    return encrypted_token.decode()
+
+def decrypt_token(encrypted_token: str) -> str:
+    decrypted_token = fernet.decrypt(encrypted_token.encode())
+    return decrypted_token.decode()
 
 def generate_unique_code(length=8):
     """Generate a unique random code."""
@@ -120,3 +236,4 @@ def is_available(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson]
 #     stop_ = start_ + timedelta(minutes=regis.course.duration)
 #     if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
 #         return Response({"error": "Invalid Time s"}, status=400)
+

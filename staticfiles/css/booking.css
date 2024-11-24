@@ -1,0 +1,511 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+@media (max-width: 768px) {
+    #booking_graphic {
+        display: none;
+        /* Hide on mobile */
+    }
+}
+
+/* Page Controller */
+
+.container {
+    background-color: #fff;
+    width: 100%;
+    height: 100%;
+    max-width: 1200px;
+}
+
+.floating-container {
+    overflow-x: hidden;
+}
+
+.scroll-container {
+    display: flex;
+    width: 300%;
+    height: 100%;
+    transition: transform 0.3s ease-in-out;
+}
+
+.section {
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    font-size: 2rem;
+    color: white;
+    padding: 0;
+
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    margin: 60px 30px 0 30px;
+    /* Add margin at the top */
+    padding: 0;
+    box-sizing: border-box;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: calc(100vh - 60px);
+    /* Adjust height for the margin */
+}
+
+.row {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    height: auto;
+}
+
+/* Left Section */
+.logo img {
+    width: 160px;
+    /* Adjust the size of the logo */
+    height: auto;
+    margin-bottom: 25px;
+}
+
+.left-section {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.left-section h3 {
+    font-size: 16px;
+    margin: 0;
+    color: #9EA1A6;
+}
+
+.left-section p {
+    font-size: 14px;
+    margin: 10px 0;
+    color: #555;
+}
+
+.calendar-view {
+    margin-top: 20px;
+}
+
+.calendar-dropdown {
+    display: flex;
+    flex-direction: column;
+    align-items: left;
+    margin-top: 10px;
+    gap: 10px;
+}
+
+select {
+    padding: 5px 10px;
+    font-size: 14px;
+    height: 45px;
+    border: 1px solid #9EA1A6;
+    border-radius: 5px;
+}
+
+
+/* Container for the custom dropdown */
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+/* Style the select element */
+.custom-dropdown select {
+    width: 100%;
+    /* Space for custom arrow */
+    font-size: 16px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    appearance: none;
+    /* Remove default arrow */
+    -webkit-appearance: none;
+    /* For Safari */
+    background-color: #fff;
+}
+
+/* Add a custom arrow */
+.custom-dropdown i {
+    position: absolute;
+    top: 50%;
+    right: 15px;
+    transform: translateY(-50%);
+    pointer-events: none;
+    /* Allow clicks through the icon */
+    fill: #333;
+    /* Icon color */
+    font-size: 21px;
+    width: 21px;
+    height: 21px;
+}
+
+.duration-buttons {
+    flex-direction: column;
+}
+
+.duration-buttons button {
+    padding: 7px 10px;
+    width: 100%;
+    font-size: 16px;
+    border: none;
+    background-color: #F6F6F6;
+    color: black;
+    font-weight: 600;
+    border-radius: 5px;
+    cursor: pointer;
+    text-align: left;
+    height: 45px;
+    margin-bottom: 10px;
+}
+
+.duration-buttons button:hover {
+    background-color: #4EAE8A;
+    color: white;
+}
+
+.duration-buttons button:active {
+    background-color: #338a6a;
+    color: white;
+}
+
+/* Right Section */
+.right-section {
+    flex: 3;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+
+.time-selection {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    /* Make the container take full width */
+    justify-content: space-between;
+    /* Distribute space between the child elements */
+    align-items: stretch;
+    /* Stretch the child elements to fill the height */
+}
+
+.day-timeslots {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+    width: 100%;
+
+}
+
+.timeslots-grid {
+    display: flex;
+    justify-content: space-between;
+    overflow-x: auto;
+    /* Enable horizontal scrolling */
+    white-space: nowrap;
+    /* Prevent wrapping of items */
+
+    gap: 10px;
+    width: 100%;
+    margin-bottom: 100px;
+}
+
+
+.dayslot {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: -2;
+    background-color: white;
+    padding: 0;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    font-size: 14px;
+    color: black;
+    margin-bottom: 10px;
+}
+
+.dayslot h1 {
+    height: 14px;
+    margin: 0;
+    padding: 0;
+    font-size: 14px;
+    text-align: center;
+    font-weight: 500;
+}
+
+.dayslot h2 {
+    margin: 0;
+    padding: 0;
+    font-size: 18px;
+    text-align: center;
+    font-weight: 600;
+
+}
+
+
+.timeslots {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 100%;
+}
+
+.timeslots button {
+    border: 1px solid #ccc;
+    background-color: white;
+    border-radius: 5px;
+    padding: 10px;
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.timeslots button.selected {
+    background-color: #48a876;
+    color: white;
+    border: 1px solid #fff;
+}
+
+/* Arrow Button */
+.arrow-button {
+    border: none;
+    color: black;
+    font-size: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+    transition: background-color 0.3s ease;
+    height: 60px;
+}
+
+.arrow {
+    font-size: 24px;
+}
+
+/* Form */
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    /* Space between buttons */
+}
+
+.btn-type {
+    border: 1.25px solid #9EA1A6;
+    color: #9EA1A6;
+    background-color: white;
+    padding: 5px 20px;
+    border-radius: 60px;
+    font-size: 16px;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
+.btn-type.active {
+    border: 1.25px solid #4EAE8A;
+    color: white;
+    background-color: #4EAE8A;
+}
+
+.btn-type.error {
+    border-color: #d9534f;
+}
+
+.btn-type svg {
+
+    fill: #9EA1A6;
+    width: 20px;
+    /* Set the width of the image */
+    height: 20px;
+    /* Set the height of the image */
+    object-fit: contain;
+    /* Ensures the image is scaled properly */
+    margin-right: 10px;
+}
+
+.btn-type.active svg {
+    fill: white;
+}
+
+.form-container {
+    width: 100%;
+    margin-bottom: 80px;
+}
+
+.form-container h2 {
+    text-align: left;
+    margin-bottom: 20px;
+    font-size: 24px;
+    font-weight: 500;
+    color: black;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    font-weight: 400;
+    margin-bottom: 8px;
+    color: #9EA1A6;
+    font-size: 14px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box;
+    color: #9EA1A6;
+}
+
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    box-sizing: border-box;
+    color: #9EA1A6;
+}
+
+.form-group textarea {
+    height: 200px;
+    resize: vertical;
+}
+
+.form-group input.error,
+.form-group textarea.error {
+    border-color: #d9534f;
+}
+
+.error-message {
+    color: #d9534f;
+    font-size: 12px;
+    margin-top: 5px;
+    display: none;
+}
+
+
+
+
+/* Image */
+.image-container {
+    width: 100%;
+    padding: 0 30px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.responsive-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+/* Footer Buttons */
+.footer {
+    position: fixed;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 100%;
+    display: flex;
+    margin-top: auto;
+
+    justify-content: center;
+    align-items: center;
+    padding: 30px 20px;
+    gap: 15px;
+}
+
+
+.footer button {
+    padding: 10px 0;
+    border: none;
+    border-radius: 20px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    width: 120px;
+}
+
+.footer .back {
+    background-color: #C2C2C2;
+    color: white;
+}
+
+.footer .back:hover {
+    background-color: #ccc;
+}
+
+.footer .next {
+    background-color: #4EAE8A;
+    color: white;
+}
+
+.footer .next:hover {
+    background-color: #48a876;
+}
+
+.status {
+    text-align: center;
+}
+
+.status img {
+    width: 275px;
+    text-align: center;
+    margin-bottom: 40px;
+    margin-top: 50px;
+}
+
+.status .title {
+    font-size: 36px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 1rem;
+}
+
+.status .subtitle {
+    font-size: 14px;
+    font-weight: 300;
+    color: #9EA1A6;
+    margin-bottom: 2rem;
+}
+
+
+.loader {
+    border: 12px solid #f3f3f3;
+    border-top: 12px solid #4EAE8A;
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}

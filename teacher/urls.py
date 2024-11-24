@@ -175,5 +175,5 @@ urlpatterns = format_suffix_patterns([
     path('student/<slug:code>', studentDetailView, name='student-detail'),
     path('student/<slug:code>/favorite', studentFavView, name='student-fav'),
     path('student/<slug:code>/add', studentAddView, name='student-add'),
-
+    
     ])

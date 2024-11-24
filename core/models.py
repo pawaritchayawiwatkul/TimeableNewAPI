@@ -68,6 +68,8 @@ class User(AbstractBaseUser, PermissionsMixin):
         ),
     )
     objects = CustomUserManager()
+    google_credentials = models.JSONField(null=True, blank=True)
+    google_calendar_id = models.CharField(null=True, blank=True)
 
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["first_name", "last_name", "phone_number", "profile_image"]
