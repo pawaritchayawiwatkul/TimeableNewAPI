@@ -36,11 +36,10 @@ class GoogleCalendarInitView(APIView):
 
         # Generate authorization URL
         authorization_url, _ = flow.authorization_url(
+            access_type="online",
             prompt="consent",
             state=encrypted_state  # The plain state is passed as part of the OAuth URL
         )
-
-        print(f"Encrypted state set in session: {request.session['state']}")
 
         return Response({"authorization_url": authorization_url})
 
@@ -85,11 +84,9 @@ class GoogleCalendarCallbackView(APIView):
         # Save encrypted credentials in user's database record
         credentials = flow.credentials
         encrypted_token = encrypt_token(credentials.token)
-        encrypted_refresh_token = encrypt_token(credentials.refresh_token)
         
         user.google_credentials = {
             'token': encrypted_token,
-            'refresh_token': encrypted_refresh_token,
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
@@ -138,14 +135,12 @@ class CreateGoogleCalendarEventView(APIView):
         # Decrypt the credentials
         try:
             token = decrypt_token(credentials_data['token'])
-            refresh_token = decrypt_token(credentials_data['refresh_token'])
         except Exception as e:
             return Response({"error": "Failed to decrypt credentials."}, status=500)
 
         # Rebuild the credentials object
         credentials = Credentials(
             token=token,
-            refresh_token=refresh_token,
             token_uri=credentials_data['token_uri'],
             client_id=credentials_data['client_id'],
             client_secret=credentials_data['client_secret'],

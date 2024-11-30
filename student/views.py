@@ -15,6 +15,13 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from utils import compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event
 from django.core.mail import send_mail
+from django.utils.timezone import localtime
+import pytz
+from dateutil.parser import isoparse  # Use this for ISO 8601 parsing
+
+
+_timezone =  timezone.get_current_timezone()
+gmt7 = pytz.timezone('Asia/Bangkok')
 
 @permission_classes([IsAuthenticated])
 class ProfileViewSet(ViewSet):
@@ -130,7 +137,6 @@ class CourseViewset(ViewSet):
 
         unavailables = regis.teacher.regular + regis.teacher.once
         duration = regis.course.duration
-        interval = timedelta(minutes=30)
         start = regis.teacher.school.start
         stop = regis.teacher.school.stop
         guest_lessons = GuestLesson.objects.filter(
@@ -227,11 +233,22 @@ class LessonViewset(ViewSet):
             filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
             filters['status'] = "CON"
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         try:
             lessons = Lesson.objects.select_related("registration__teacher__user", "registration__course").filter(**filters).order_by("booked_datetime")
         except ValidationError as e:
             return Response({"error_message": e}, status=400)
+
         ser = ListLessonSerializer(instance=lessons, many=True)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data, status=200)
 
     def recent(self, request):
@@ -283,6 +300,11 @@ class LessonViewset(ViewSet):
             "registration__student__user_id": request.user.id,
             "booked_datetime__date": date,
             }
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         if status == "pending":
             filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
@@ -291,7 +313,12 @@ class LessonViewset(ViewSet):
             **filters
         ).order_by("booked_datetime")
         ser = ListLessonSerializer(instance=lessons, many=True)
-        return Response(ser.data)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return Response(ser.data, status=200)
     
     def list(self, request):
         filters = {
@@ -302,7 +329,11 @@ class LessonViewset(ViewSet):
         if date:
             date = datetime.strptime(date, '%Y-%m-%d')
             filters['booked_datetime__gte'] = date
-        
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         status = request.GET.get('status', None)
         if status == "pending":
             filters['status__in'] = ["PENTE", "PENST"]
@@ -312,13 +343,28 @@ class LessonViewset(ViewSet):
                 **filters
             ).order_by("booked_datetime")
         ser = ListLessonSerializer(instance=lessons, many=True)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data)
         
     def create(self, request):
         data = dict(request.data)
         data["student_id"] = request.user.id
+        _is_bangkok_time = data.get("bangkok_time", True)
+        try:
+            booked_date = datetime.strptime(data["booked_datetime"], "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            return Response({"error_message": "Invalid Time Input"}, status=200)
+        if _is_bangkok_time:
+            booked_date = timezone.make_aware(booked_date, timezone=gmt7)
+            data["booked_datetime"] = booked_date
+        else:
+            booked_date = timezone.make_aware(booked_date, timezone=_timezone)
+            data["booked_datetime"] = booked_date
         registration_id = data.pop("registration_id")
-        booked_date = datetime.strptime(data["booked_datetime"], "%Y-%m-%dT%H:%M:%SZ")
         day_number = booked_date.weekday() + 1
         try:
             regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
@@ -372,8 +418,10 @@ class GuestViewset(ViewSet):
     def create_guest_lesson(self, request, code):
         data = dict(request.data)
         ser = GuestLessonSerializer(data=data)
+        booked_date = datetime.strptime(data["datetime"], "%Y-%m-%dT%H:%M:%SZ")
+        booked_date = timezone.make_aware(booked_date, timezone=gmt7)
+        data["datetime"] = booked_date
         if ser.is_valid():
-            booked_date = datetime.strptime(data["datetime"], "%Y-%m-%dT%H:%M:%SZ")
             day_number = booked_date.weekday() + 1
             try:
                 teacher = Teacher.objects.select_related("school").prefetch_related(
@@ -410,7 +458,7 @@ class GuestViewset(ViewSet):
             unavailables = teacher.regular + teacher.once
             start = teacher.school.start
             stop = teacher.school.stop
-            
+
             if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, start, stop, duration):
                 print("invalid time")
                 return Response({"error": "Invalid Time"}, status=400)

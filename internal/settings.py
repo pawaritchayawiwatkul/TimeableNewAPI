@@ -8,9 +8,8 @@ import os
 from dotenv import load_dotenv 
 from django.utils.timezone import activate
 from celery.schedules import crontab
-
-import django_celery_beat
 import os 
+
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 
 load_dotenv() 
@@ -20,11 +19,11 @@ load_dotenv()
 BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 FERNET_KEY =  os.getenv("FERNET_SECRET_KEY")
-DEBUG = False
+DEBUG = True
 ALLOWED_HOSTS = ["*"]
 APPEND_SLASH=True 
 
-TIME_ZONE = 'Asia/Bangkok'  # Set this to your desired timezone
+TIME_ZONE = 'UTC'  # Set this to your desired timezone
 USE_TZ = True
 activate(TIME_ZONE)
 
@@ -279,7 +278,6 @@ GOOGLE_CLIENT_SECRET_FILE = os.getenv("GOOGLE_CLIENT_KEY")
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/calendar",     
     "https://www.googleapis.com/auth/calendar.events",
-    "https://www.googleapis.com/auth/calendar.readonly"
     ]
 
 
@@ -291,15 +289,18 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_BEAT_MAX_LOOP_INTERVAL = 1800.0
 
+from celery.schedules import schedule
+
+
 CELERY_BEAT_SCHEDULE = {
-    'send-notification-every-30-minutes': {
+    'send-lesson-notification-every-5-seconds': {
         'task': 'teacher.tasks.send_lesson_notification',
-        'schedule': crontab(minute='*/30'),  # Executes every 30 minutes
+        'schedule': schedule(5.0),  # Executes every 15 seconds
         'args': (),
     },
-    'send-guest-notification-every-30-minutes': {
+    'send-guest-notification-every-5-seconds': {
         'task': 'teacher.tasks.send_guest_lesson_notification',
-        'schedule': crontab(minute='*/30'),  # Executes every 30 minutes
+        'schedule': schedule(5.0),  # Executes every 15 seconds
         'args': (),
     },
 }

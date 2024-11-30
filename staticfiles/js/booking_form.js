@@ -79,8 +79,14 @@ function failedBooking() {
     </p>`;
 }
 
-function scrollToSection(index) {
-    const targetX = index * scrollContainer.clientWidth / 3;
+function scrollToSection() {
+    const targetX = currentIndex * scrollContainer.clientWidth / 3;
+    scrollContainer.style.transform = `translateX(-${targetX}px)`;
+}
+
+function teleportToSection() {
+    const targetX = currentIndex * scrollContainer.clientWidth / 3;
+    scrollContainer.style.transition = "none";  // Disable transition for instant movement
     scrollContainer.style.transform = `translateX(-${targetX}px)`;
 }
 
@@ -105,7 +111,7 @@ function moveToNextStep() {
             return;
         }
         currentIndex++;
-        scrollToSection(currentIndex);
+        scrollToSection();
         updateButtons();
     } else {
         submitBooking();
@@ -115,7 +121,7 @@ function moveToNextStep() {
 function moveToPreviousStep() {
     if (currentIndex > 0) {
         currentIndex--;
-        scrollToSection(currentIndex);
+        scrollToSection();
         updateButtons();
     }
 }
@@ -200,7 +206,7 @@ document.querySelectorAll('.duration-buttons button').forEach(button => {
     });
 });
 
-
+window.addEventListener('resize', teleportToSection);
 nextButton.addEventListener('click', moveToNextStep);
 backButton.addEventListener('click', moveToPreviousStep);
 

@@ -3,6 +3,7 @@ let currentDayIndex = currentDate.getDay(); // Current day index (0-6)
 const uuid = document.getElementById("uid").value;
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const availableTime = {};
+
 // Function to format date as mm/dd/yyyy
 function formatDate(date) {
     const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Add leading zero if needed
@@ -23,16 +24,17 @@ function convertTo12HourFormat(time) {
 
 async function fetchAvailableTime(date) {
     const duration = document.getElementById("duration").value;
-    date = formatDate(date);
+    date = formatDate(date, duration);
+    let dateKey = `${date}-${duration}`
     if (!date || !duration) return [];
     if (date in availableTime) {
-        return availableTime[date];
+        return availableTime[dateKey];
     }
     try {
         const response = await fetch(`/student/guest/${uuid}/availability?date=${date}&duration=${duration}`);
         const data = await response.json();
         let parsedData = data.availables.map(slot => slot.start);
-        availableTime[date] = parsedData
+        availableTime[dateKey] = parsedData
         return parsedData;
     } catch (error) {
         return [];
@@ -127,7 +129,6 @@ window.onload = () => {
     document.getElementById('leftArrow').addEventListener('click', () => moveDate(-1)); // Move to previous day
     document.getElementById('rightArrow').addEventListener('click', () => moveDate(1)); // Move to next day
 };
-
 
 window.addEventListener('resize', updateTimeslots);
 document.getElementById('duration').addEventListener('change', updateTimeslots);

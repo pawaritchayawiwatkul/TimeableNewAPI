@@ -17,7 +17,11 @@ from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Prefetch
 from django.core.mail import send_mail
+import pytz
+from dateutil.parser import isoparse  # Use this for ISO 8601 parsing
 
+_timezone =  timezone.get_current_timezone()
+gmt7 = pytz.timezone('Asia/Bangkok')
 
 @permission_classes([IsAuthenticated])
 class UnavailableTimeViewset(ViewSet):
@@ -134,11 +138,6 @@ class CourseViewset(ViewSet):
     def retrieve(self, request, code):
         try:
             tcourse = TeacherCourses.objects.select_related("course").prefetch_related(Prefetch('course__registration')).get(teacher__user_id=request.user.id, course__uuid=code)
-            # tcourse = TeacherCourses.objects.select_related("course").prefetch_related(Prefetch('course__registration')).annotate(
-            #     number_of_registered=Count('course__registration', distinct=True),
-            #     number_of_student=Count('course__registration__student', distinct=True),
-            #     number_of_comlesson=Count('course__registration__lesson', filter=Q(course__registration__lesson__status='COM'), distinct=True)  # Count completed lessons related to course registrations
-            # ).get(teacher__user_id=request.user.id, course__uuid=code)
         except TeacherCourses.DoesNotExist:
             return Response({"error_messages": ["Invalid UUID"]}, status=400)
         ser = TeacherCourseDetailSerializer(instance=tcourse)
@@ -282,6 +281,7 @@ class RegistrationViewset(ViewSet):
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
         day_number = date_obj.weekday() + 1
+
         regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
             Prefetch(
                 "teacher__unavailable_reg",
@@ -456,11 +456,21 @@ class LessonViewset(ViewSet):
             filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
             filters['status'] = "CON"
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         try:
             lessons = Lesson.objects.select_related("registration__student__user", "registration__course").filter(**filters).order_by("booked_datetime")
         except ValidationError as e:
             return Response({"error_message": e}, status=400)
         ser = ListLessonSerializer(instance=lessons, many=True)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data, status=200)
     
     
@@ -473,6 +483,11 @@ class LessonViewset(ViewSet):
         if date:
             date = datetime.strptime(date, '%Y-%m-%d')
             filters['booked_datetime__gte'] = date
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         
         status = request.GET.get('status', None)
         if status == "pending":
@@ -482,7 +497,12 @@ class LessonViewset(ViewSet):
         lessons = Lesson.objects.select_related("registration__student__user").filter(
                 **filters
             ).order_by("booked_datetime")
-        ser = ListLessonSerializer(instance=lessons, many=True)        
+        ser = ListLessonSerializer(instance=lessons, many=True) 
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data)
     
     def day(self, request):
@@ -494,6 +514,11 @@ class LessonViewset(ViewSet):
             "registration__teacher__user_id": request.user.id,
             "booked_datetime__date": date,
             }
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
         if status == "pending":
             filters['status__in'] = ["PENTE", "PENST"]
         elif status == "confirm":
@@ -502,13 +527,28 @@ class LessonViewset(ViewSet):
             **filters
         ).order_by("booked_datetime")
         ser = ListLessonSerializer(instance=lessons, many=True)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["booked_datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data)
 
     def create(self, request):
         data = dict(request.data)
         data["teacher_id"] = request.user.id
+        _is_bangkok_time = data.get("bangkok_time", True)
+        try:
+            booked_date = datetime.strptime(data["booked_datetime"], "%Y-%m-%dT%H:%M:%SZ")
+        except ValueError:
+            return Response({"error_message": "Invalid Time Input"})
+        if _is_bangkok_time:
+            booked_date = timezone.make_aware(booked_date, timezone=gmt7)
+            data["booked_datetime"] = booked_date
+        else:
+            booked_date = timezone.make_aware(booked_date, timezone=_timezone)
+            data["booked_datetime"] = booked_date
         registration_id = data.pop("registration_id")
-        booked_date = datetime.strptime(data["booked_datetime"], "%Y-%m-%dT%H:%M:%SZ")
         day_number = booked_date.weekday() + 1
         try:
             regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(

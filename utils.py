@@ -12,11 +12,15 @@ from fcm_django.models import FCMDevice
 from firebase_admin.messaging import Message, Notification
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from django.utils.timezone import localtime
+import pytz
 
 # Generate a key and store it securely (should be done once and stored securely)
 
+gmt7 = pytz.timezone('Asia/Bangkok')
 fernet = Fernet(settings.FERNET_KEY)
-_timezone =  timezone.get_current_timezone_name()
+_timezone =  timezone.get_current_timezone()
+base_datetime = datetime(1999,1, 1)
 
 def delete_google_calendar_event(user, event_id):
     credentials_data = user.google_credentials
@@ -28,14 +32,12 @@ def delete_google_calendar_event(user, event_id):
     # Decrypt the credentials
     try:
         token = decrypt_token(credentials_data['token'])
-        refresh_token = decrypt_token(credentials_data['refresh_token'])
     except Exception as e:
         return 
 
     # Rebuild the credentials object
     credentials = Credentials(
         token=token,
-        refresh_token=refresh_token,
         token_uri=credentials_data['token_uri'],
         client_id=credentials_data['client_id'],
         client_secret=credentials_data['client_secret'],
@@ -153,30 +155,32 @@ def merge_schedule(validated_data, unavailables):
             new_stop = stop
             _ = True
         overlap.append(interval)
-        # print('5')
 
     validated_data['start'] = new_start
     validated_data['stop'] = new_stop
     return validated_data, overlap
 
 def compute_available_time(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson], guest_lessons:List[GuestLesson], date_time, start, stop, duration):
-    interval = timedelta(minutes=30)
     duration = timedelta(minutes=duration)
+    interval = duration
     available_times = []
-    current_time = timezone.make_aware(datetime.combine(date_time, start))
-    stop_time = timezone.make_aware(datetime.combine(date_time, stop))
+
+    current_time = timezone.make_aware(datetime.combine(date_time, start), timezone=gmt7)
+    stop_time = timezone.make_aware(datetime.combine(date_time, stop), timezone=gmt7)
+
     while current_time + duration <= stop_time:
         end_time = current_time + duration
         
         _is_available = True
         for unavailable in unavailables:
-            start_ = timezone.make_aware(datetime.combine(date_time, unavailable.start))
-            stop_ = timezone.make_aware(datetime.combine(date_time, unavailable.stop))
+            start_ = timezone.make_aware(datetime.combine(date_time, unavailable.start), timezone=gmt7)
+            stop_ = timezone.make_aware(datetime.combine(date_time, unavailable.stop), timezone=gmt7)
             if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
                 _is_available = False
                 break
         for lesson in lessons:
             start_ = lesson.booked_datetime
+            print(lesson.booked_datetime)
             stop_ = start_ + timedelta(minutes=lesson.registration.course.duration)
             if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
                 _is_available = False
@@ -196,15 +200,15 @@ def compute_available_time(unavailables:List[UnavailableTimeOneTime], lessons:Li
     return available_times
 
 def is_available(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson], guest_lessons:List[GuestLesson], date_time, start, stop, duration):
-    start_time = timezone.make_aware(date_time)
+    start_time = date_time
     end_time = start_time + timedelta(minutes=duration)
-    school_start = timezone.make_aware(datetime.combine(start_time, start))
-    school_close = timezone.make_aware(datetime.combine(start_time, stop))
+    school_start = timezone.make_aware(datetime.combine(date_time, start), timezone=gmt7)
+    school_close = timezone.make_aware(datetime.combine(date_time, stop), timezone=gmt7)
     if not (school_start <= start_time < school_close) or not (school_start <= end_time <= school_close):
         return False
     for unavailable in unavailables:
-        start_ = timezone.make_aware(datetime.combine(start_time, unavailable.start))
-        stop_ = timezone.make_aware(datetime.combine(start_time, unavailable.stop))
+        start_ = timezone.make_aware(datetime.combine(start_time, unavailable.start), timezone=gmt7)
+        stop_ = timezone.make_aware(datetime.combine(start_time, unavailable.stop), timezone=gmt7)
         if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
             return False
     for lesson in lessons:
@@ -218,22 +222,3 @@ def is_available(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson]
         if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
             return False
     return True
-
-
-# start_time = timezone.make_aware(booked_date)
-# end_time = start_time + timedelta(minutes=regis.course.duration)
-# school_start = timezone.make_aware(datetime.combine(start_time, regis.course.school.start))
-# school_close = timezone.make_aware(datetime.combine(start_time, regis.course.school.stop))
-# if not (school_start <= start_time < school_close) or not (school_start <= end_time <= school_close):
-#     return Response({"error": "Not in operating Time"}, status=400)
-# for unavailable in unavailables:
-#     start_ = timezone.make_aware(datetime.combine(start_time, unavailable.start))
-#     stop_ = timezone.make_aware(datetime.combine(start_time, unavailable.stop))
-#     if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
-#         return Response({"error": "Invalid Time"}, status=400)
-# for lesson in booked_lessons:
-#     start_ = lesson.booked_datetime
-#     stop_ = start_ + timedelta(minutes=regis.course.duration)
-#     if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
-#         return Response({"error": "Invalid Time s"}, status=400)
-

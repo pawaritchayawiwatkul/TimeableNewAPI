@@ -8,15 +8,10 @@ from utils import send_notification
 from celery_singleton import Singleton
 
 
-_timezone = timezone.get_current_timezone()
-print(_timezone)
-utc_timezone = ptimezone('UTC')
-
 # Send Notifications
 @shared_task(base=Singleton)
 def send_lesson_notification():
     now = timezone.now()
-    now = now + timedelta(hours=7)
     end_time = now + timedelta(minutes=60)
     upcoming_lessons = list(Lesson.objects.select_related("registration__student__user", "registration__teacher__user").filter(
         booked_datetime__gte=now,
@@ -42,7 +37,6 @@ def send_lesson_notification():
 @shared_task(base=Singleton)
 def send_guest_lesson_notification():
     now = timezone.now()
-    now = now + timedelta(hours=7)
     end_time = now + timedelta(minutes=60)
     upcoming_guest_lessons = list(GuestLesson.objects.select_related("teacher__user").filter(
         datetime__gte=now,
