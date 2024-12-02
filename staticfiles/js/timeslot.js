@@ -3,7 +3,7 @@ let currentDayIndex = currentDate.getDay(); // Current day index (0-6)
 const uuid = document.getElementById("uid").value;
 const daysOfWeek = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const availableTime = {};
-
+let updatingTime = false;
 // Function to format date as mm/dd/yyyy
 function formatDate(date) {
     const month = (date.getMonth() + 1).toString().padStart(2, '0'); // Add leading zero if needed
@@ -41,85 +41,77 @@ async function fetchAvailableTime(date) {
     }
 }
 
-async function createTimeSlot(date) {
-    const dayIndex = date.getDay(); // Get the index of the day (0-6)
+async function updateTimeslots() {
+    if (!updatingTime) {
+        updatingTime = true;
+
+        const timeslotGrid = document.querySelector('.timeslots-grid');
+        const startDayOffset = 1;
+
+        try {
+            for (let i = -startDayOffset; i <= startDayOffset; i++) {
+                const dayIndex = i + startDayOffset; // Adjust for predefined elements
+                const day = new Date(currentDate);
+                day.setDate(currentDate.getDate() + i); // Adjust the date by the offset
+
+                // Update timeslot for the specific day
+                const timeslotElement = timeslotGrid.querySelector(`.day-timeslots[data-index="${dayIndex}"]`);
+                if (timeslotElement) {
+                    await updateDayTimeslot(timeslotElement, day);
+                }
+            }
+        } catch (error) {
+            console.error('Error while updating timeslots:', error);
+        }
+
+        updatingTime = false;
+    }
+}
+
+async function updateDayTimeslot(dayTimeslotElement, date) {
+    const dayIndex = date.getDay();
     const dayName = daysOfWeek[dayIndex]; // Get the day name
 
-    // Create the elements for the timeslot
-    const dayTimeslot = document.createElement('div');
-    dayTimeslot.classList.add('day-timeslots');
+    // Update day name and date
+    const dayNameElement = dayTimeslotElement.querySelector('.day-name');
+    const dayDateElement = dayTimeslotElement.querySelector('.day-date');
+    const timeslotsContainer = dayTimeslotElement.querySelector('.timeslots');
 
-    const dayslot = document.createElement('div');
-    dayslot.classList.add('dayslot');
-
-    // Day name
-    const dayNameElement = document.createElement('h1');
     dayNameElement.textContent = dayName;
+    dayDateElement.textContent = date.getDate(); // Day of the month
+    timeslotsContainer.setAttribute('data-date', formatDate(date));
 
-    // Date (day of the month)
-    const dayDate = document.createElement('h2');
-    dayDate.textContent = date.getDate(); // Get the day of the month
+    // Clear existing timeslot buttons
+    timeslotsContainer.innerHTML = '';
 
-    // Append the day name and date to the day slot
-    dayslot.appendChild(dayNameElement);
-    dayslot.appendChild(dayDate);
-
-    // Create the timeslots section
-    const timeslots = document.createElement('div');
-    timeslots.classList.add('timeslots');
-    timeslots.setAttribute('data-date', formatDate(date)); // You can dynamically assign this value
-
-    // Add timeslot buttons based on the selected day
-    const timesForDay = await fetchAvailableTime(date)
+    // Add timeslot buttons dynamically
+    const timesForDay = await fetchAvailableTime(date);
     timesForDay.forEach(time => {
         const timeButton = document.createElement('button');
         timeButton.textContent = convertTo12HourFormat(time);
         timeButton.value = time;
-        timeslots.appendChild(timeButton);
-    });
 
-    // Append the dayslot and timeslots to the dayTimeslot element
-    dayTimeslot.appendChild(dayslot);
-    dayTimeslot.appendChild(timeslots);
-    return dayTimeslot;
-}
-
-// Function to update the timeslot grid
-async function updateTimeslots() {
-    document.querySelectorAll('.timeslots button').forEach(b => b.classList.remove('selected'));
-    document.getElementById('selectedTimeSlot').value = "";
-    document.getElementById('selectedDate').value = "";
-
-    const timeslotGrid = document.querySelector('.timeslots-grid');
-    timeslotGrid.innerHTML = ''; // Clear existing content
-
-
-    // Check if it's mobile (screen width <= 768px)
-    const isMobile = window.innerWidth <= 768;
-
-    // Generate the days based on the numDays
-    const startDayOffset = isMobile ? 1 : 2;// Calculate how many days before and after
-    for (let i = -startDayOffset; i < startDayOffset + 1; i++) {
-        const day = new Date(currentDate);
-        day.setDate(currentDate.getDate() + i); // Adjust the day by the offset
-        let dayTimeslot = await createTimeSlot(day)
-        timeslotGrid.appendChild(dayTimeslot);
-    }
-
-    document.querySelectorAll('.timeslots button').forEach(button => {
-        button.addEventListener('click', function () {
+        // Add click listener for the button
+        timeButton.addEventListener('click', () => {
             document.querySelectorAll('.timeslots button').forEach(b => b.classList.remove('selected'));
-            button.classList.add('selected');
-            document.getElementById('selectedTimeSlot').value = button.value;
-            document.getElementById('selectedDate').value = button.parentNode.getAttribute('data-date');
+            timeButton.classList.add('selected');
+            document.getElementById('selectedTimeSlot').value = timeButton.value;
+            document.getElementById('selectedDate').value = timeslotsContainer.getAttribute('data-date');
         });
+
+        timeslotsContainer.appendChild(timeButton);
     });
 }
 
 function moveDate(direction) {
-    const isMobile = window.innerWidth <= 768;
-    const daysToOffset = (isMobile ? 3 : 5) * direction;
+    const daysToOffset = 3 * direction;
     currentDate.setDate(currentDate.getDate() + daysToOffset);
+
+    // Update the dateField value
+    const dateField = document.getElementById('dateField');
+    dateField.value = currentDate.toISOString().split('T')[0]; // Format as YYYY-MM-DD
+
+    // Update the timeslots
     updateTimeslots();
 }
 
@@ -128,7 +120,21 @@ window.onload = () => {
 
     document.getElementById('leftArrow').addEventListener('click', () => moveDate(-1)); // Move to previous day
     document.getElementById('rightArrow').addEventListener('click', () => moveDate(1)); // Move to next day
+    document.getElementById("dateField").addEventListener("change", function (event) {
+        // Get the selected date
+        const selectedDate = event.target.value;
+
+        if (selectedDate) {
+            currentDate = new Date(selectedDate);
+        }
+        console.log(selectedDate)
+        updateTimeslots();
+    })
+    const today = new Date().toISOString().split('T')[0];
+
+    // Set the default value of the date input to today's date
+    document.getElementById('dateField').value = today;
 };
 
-window.addEventListener('resize', updateTimeslots);
+// window.addEventListener('resize', updateTimeslots);
 document.getElementById('duration').addEventListener('change', updateTimeslots);

@@ -16,10 +16,12 @@ load_dotenv()
 
 
 # DJANGO SETUP
+DEBUG = True if os.getenv("DEBUGING") == "True" else False
+DEVELOPING = True if os.getenv("DEVELOPING") == "True" else False
+
 BASE_DIR = Path(__file__).resolve().parent
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 FERNET_KEY =  os.getenv("FERNET_SECRET_KEY")
-DEBUG = True
 ALLOWED_HOSTS = ["*"]
 APPEND_SLASH=True 
 
@@ -41,7 +43,6 @@ INSTALLED_APPS = [
     'fcm_django',
     'storages',
 
-    'debug_toolbar',
     'googlecalendar',
     'teacher',
     'student',
@@ -50,7 +51,6 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
-    'debug_toolbar.middleware.DebugToolbarMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -59,6 +59,10 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+if DEBUG:
+    INSTALLED_APPS.append('debug_toolbar')
+    MIDDLEWARE.insert(0, 'debug_toolbar.middleware.DebugToolbarMiddleware')
 
 ROOT_URLCONF = 'internal.urls'
 
@@ -84,39 +88,39 @@ WSGI_APPLICATION = 'internal.wsgi.application'
 
 
 # Database
-DATABASES = {
-    'default': {
-       'ENGINE': 'django.db.backends.postgresql',
-       'NAME': 'postgres',
-       'USER': 'postgres',
-       'PASSWORD': 'Pluem9988!',
-       'HOST': 'localhost',
-       'PORT': '5432',
+if DEBUG:
+    DATABASES = {
+        'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'postgres',
+        'USER': 'postgres',
+        'PASSWORD': 'Pluem9988!',
+        'HOST': 'localhost',
+        'PORT': '5432',
+        }
     }
-}
-
-
-# DATABASES = {
-#     'default': {
-#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#        'NAME': 'railway',
-#        'HOST': 'monorail.proxy.rlwy.net',
-#        'USER': 'postgres',
-#        'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
-#        'PORT': '15052',
-#     }
-# }
-
-# DATABASES = {
-#     'default': {
-#        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-#        'NAME': 'railway',
-#        'HOST': 'autorack.proxy.rlwy.net',
-#        'USER': 'postgres',
-#        'PASSWORD': 'DfXrqZpmjhvIUPuTjWJHVYEGSrsKERuT',
-#        'PORT': '35576',
-#     }
-# }
+elif DEVELOPING:
+    DATABASES = {
+        'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'railway',
+        'HOST': 'autorack.proxy.rlwy.net',
+        'USER': 'postgres',
+        'PASSWORD': 'DfXrqZpmjhvIUPuTjWJHVYEGSrsKERuT',
+        'PORT': '35576',
+        }
+    }    
+else:
+    DATABASES = {
+        'default': {
+        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'NAME': 'railway',
+        'HOST': 'monorail.proxy.rlwy.net',
+        'USER': 'postgres',
+        'PASSWORD': 'AyDEBNsgiiBOdoNURGIMeqnIEzaNAVdm',
+        'PORT': '15052',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -293,15 +297,14 @@ from celery.schedules import schedule
 
 
 CELERY_BEAT_SCHEDULE = {
-    'send-lesson-notification-every-5-seconds': {
+    'send-lesson-notification-every-15-minutes': {
         'task': 'teacher.tasks.send_lesson_notification',
-        'schedule': schedule(5.0),  # Executes every 15 seconds
+        'schedule': crontab(minute='*/15'),  # Executes every 15 minutes
         'args': (),
     },
-    'send-guest-notification-every-5-seconds': {
+    'send-guest-notification-every-15-minutes': {
         'task': 'teacher.tasks.send_guest_lesson_notification',
-        'schedule': schedule(5.0),  # Executes every 15 seconds
+        'schedule': crontab(minute='*/15'),  # Executes every 15 minutes
         'args': (),
     },
 }
-

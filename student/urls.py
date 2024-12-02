@@ -6,7 +6,6 @@ app_name = 'student'
 
 courseView = views.CourseViewset.as_view({
     'get': 'list',
-    'post': 'create'
 })
 
 courseDetailView = views.CourseViewset.as_view({

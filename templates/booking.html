@@ -111,6 +111,11 @@
                     <div class="row">
                         <div class="col-12 col-md-3 mb-3">
                             <div class="left-section">
+                                <div class="form-group">
+                                    <h3>Date</h3>
+                                    <input type="date" id="dateField" name="date" required placeholder="YYYY-MM-DD">
+                                    <span class="error-message" id="emailError"></span>
+                                </div>
                                 <h3>Duration</h3>
                                 <div class="calendar-dropdown">
                                     <div class="custom-dropdown">
@@ -139,6 +144,34 @@
                                         <i class="fa fa-angle-left"></i>
                                     </button>
                                     <div class="timeslots-grid">
+                                        <!-- Placeholder for timeslots -->
+                                        <div class="day-timeslots" data-index="0">
+                                            <div class="dayslot">
+                                                <h1 class="day-name"></h1>
+                                                <h2 class="day-date"></h2>
+                                            </div>
+                                            <div class="timeslots" data-date="">
+                                                <!-- Timeslot buttons will go here -->
+                                            </div>
+                                        </div>
+                                        <div class="day-timeslots" data-index="1">
+                                            <div class="dayslot">
+                                                <h1 class="day-name"></h1>
+                                                <h2 class="day-date"></h2>
+                                            </div>
+                                            <div class="timeslots" data-date="">
+                                                <!-- Timeslot buttons will go here -->
+                                            </div>
+                                        </div>
+                                        <div class="day-timeslots" data-index="2">
+                                            <div class="dayslot">
+                                                <h1 class="day-name"></h1>
+                                                <h2 class="day-date"></h2>
+                                            </div>
+                                            <div class="timeslots" data-date="">
+                                                <!-- Timeslot buttons will go here -->
+                                            </div>
+                                        </div>
                                     </div>
                                     <button class="arrow-button" id="rightArrow">
                                         <i class="fa fa-angle-right"></i>

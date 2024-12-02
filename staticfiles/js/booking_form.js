@@ -15,6 +15,12 @@ async function submitBooking() {
     const note = document.getElementById('note').value || "-"; // Default to "-" if no note
 
     // Validation: Check if required fields are filled
+
+    if (!timeslot) {
+        document.querySelectorAll('.timeslots button').forEach(b => b.classList.add('error'));
+        return;
+    }
+
     if (!name || !email || !date || !timeslot || !duration || !type) {
         alert("Please fill out all fields.");
         return;
@@ -160,7 +166,7 @@ function validateForm() {
         isValid = false;
     }
 
-    // Validate type selection
+    // Validate Button
     const buttons = document.querySelectorAll(".btn-type");
     let typeSelected = false;
     buttons.forEach((button) => {
@@ -177,7 +183,6 @@ function validateForm() {
         errorMessage.textContent = "Please select a type.";
         isValid = false;
     }
-
     return isValid
 }
 
@@ -205,6 +210,7 @@ document.querySelectorAll('.duration-buttons button').forEach(button => {
         updateTimeslots();
     });
 });
+
 
 window.addEventListener('resize', teleportToSection);
 nextButton.addEventListener('click', moveToNextStep);

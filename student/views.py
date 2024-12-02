@@ -15,7 +15,6 @@ from django.shortcuts import get_object_or_404
 from django.shortcuts import render
 from utils import compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event
 from django.core.mail import send_mail
-from django.utils.timezone import localtime
 import pytz
 from dateutil.parser import isoparse  # Use this for ISO 8601 parsing
 
@@ -227,7 +226,8 @@ class LessonViewset(ViewSet):
     
     def status(self, request, status):
         filters = {
-            "registration__student__user_id": request.user.id
+            "registration__student__user_id": request.user.id,
+            "booked_datetime__gte": datetime.now().date()
         }
         if status == "pending":
             filters['status__in'] = ["PENTE", "PENST"]
@@ -320,36 +320,6 @@ class LessonViewset(ViewSet):
                 data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data, status=200)
     
-    def list(self, request):
-        filters = {
-            "registration__student__user_id": request.user.id,
-            }
-        
-        date = request.GET.get('date', None)
-        if date:
-            date = datetime.strptime(date, '%Y-%m-%d')
-            filters['booked_datetime__gte'] = date
-        _is_bangkok_time = request.GET.get("bangkok_time", "true")
-        if _is_bangkok_time == "true":
-            is_bangkok_time = True
-        else:
-            is_bangkok_time = False
-        status = request.GET.get('status', None)
-        if status == "pending":
-            filters['status__in'] = ["PENTE", "PENST"]
-        elif status == "confirm":
-            filters['status'] = "CON"
-        lessons = Lesson.objects.select_related("registration__teacher__user").filter(
-                **filters
-            ).order_by("booked_datetime")
-        ser = ListLessonSerializer(instance=lessons, many=True)
-        if is_bangkok_time:
-            for data in ser.data:
-                dt = isoparse(data["booked_datetime"])
-                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
-                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        return Response(ser.data)
-        
     def create(self, request):
         data = dict(request.data)
         data["student_id"] = request.user.id
@@ -442,7 +412,6 @@ class GuestViewset(ViewSet):
                 ).get(user__uuid=code)
                 ser.validated_data['teacher_id'] = teacher.pk
             except Teacher.DoesNotExist:
-                print("invalid uuid")
                 return Response({"Invalid": "UUID"}, status=400)
             name = ser.validated_data.get("name")
             duration = ser.validated_data.get("duration")
@@ -460,7 +429,6 @@ class GuestViewset(ViewSet):
             stop = teacher.school.stop
 
             if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, start, stop, duration):
-                print("invalid time")
                 return Response({"error": "Invalid Time"}, status=400)
 
             lesson = ser.create(validated_data=ser.validated_data)

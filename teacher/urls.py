@@ -6,12 +6,16 @@ app_name = 'teacher'
 
 lessonListView = views.LessonViewset.as_view({
     'post': 'create',
-    'get': 'list'
 })
 
 studentAddView = views.StudentViewset.as_view({
     'post': 'add',
     # 'get': 'list'
+})
+
+
+blockTimeList = views.UnavailableTimeViewset.as_view({
+    'get': 'retrieve'
 })
 
 profileView = views.ProfileViewSet.as_view({
@@ -158,7 +162,7 @@ urlpatterns = format_suffix_patterns([
 
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),
-    # path('unavailable/', blockTimeList, name='block-time'),
+    path('unavailable/', blockTimeList, name='block-time'),
     path('unavailable/<slug:code>/remove', blockTimeRemove, name='block-time'),
 
     path('guest', guestListViewSet, name='guest-list'),

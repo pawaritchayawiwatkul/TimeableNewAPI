@@ -1,10 +1,22 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
 
-@media (max-width: 768px) {
-    #booking_graphic {
-        display: none;
-        /* Hide on mobile */
-    }
+input[type="date"] {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    text-align: left;
+    /* Align text to the left */
+    display: block;
+    /* Ensure block-level layout for better alignment */
+
+    color: black;
+    font-size: 16px;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+
+    width: 100%;
 }
 
 body {
@@ -20,17 +32,11 @@ body {
     /* Adjust height for the margin */
 }
 
-/* Media query for mobile devices (adjust based on your needs) */
-@media (max-width: 768px) {
-    body {
-        margin: 60px 10px 0 10px;
-        /* Reduce side margin for mobile */
-    }
-}
 
 /* Page Controller */
 
 .container {
+    /* Standard appearance reset */
     background-color: #fff;
     width: 100%;
     height: 100%;
@@ -173,7 +179,7 @@ select {
 }
 
 .duration-buttons button:hover {
-    background-color: #4EAE8A;
+    background-color: #131a17;
     color: white;
 }
 
@@ -220,12 +226,14 @@ select {
     /* Enable horizontal scrolling */
     white-space: nowrap;
     /* Prevent wrapping of items */
-
     gap: 10px;
     width: 100%;
     margin-bottom: 100px;
 }
 
+.timeslots-grid button {
+    color: black;
+}
 
 .dayslot {
     display: flex;
@@ -276,6 +284,11 @@ select {
     padding: 10px;
     font-size: 14px;
     cursor: pointer;
+}
+
+.timeslots button.error {
+    border: 1px solid red;
+    animation: shake 0.5s ease;
 }
 
 .timeslots button.selected {
@@ -362,6 +375,7 @@ select {
 
 .form-group {
     margin-bottom: 20px;
+    width: 100%;
 }
 
 .form-group label {
@@ -381,19 +395,8 @@ select {
     border-radius: 4px;
     font-size: 16px;
     box-sizing: border-box;
-    color: #9EA1A6;
-}
+    color: black;
 
-
-.form-group input,
-.form-group textarea {
-    width: 100%;
-    padding: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 16px;
-    box-sizing: border-box;
-    color: #9EA1A6;
 }
 
 .form-group textarea {
@@ -412,9 +415,6 @@ select {
     margin-top: 5px;
     display: none;
 }
-
-
-
 
 /* Image */
 .image-container {
@@ -510,6 +510,27 @@ select {
     animation: spin 1s linear infinite;
 }
 
+
+@keyframes shake {
+
+    0%,
+    100% {
+        transform: translateX(0);
+    }
+
+    25% {
+        transform: translateX(-2px);
+    }
+
+    50% {
+        transform: translateX(2px);
+    }
+
+    75% {
+        transform: translateX(-2px);
+    }
+}
+
 @keyframes spin {
     0% {
         transform: rotate(0deg);
@@ -517,5 +538,25 @@ select {
 
     100% {
         transform: rotate(360deg);
+    }
+}
+
+@media (max-width: 768px) {
+    #booking_graphic {
+        display: none;
+        /* Hide on mobile */
+    }
+
+    .duration-buttons {
+        display: none;
+    }
+
+    body {
+        margin: 40px 4px 0 4px;
+        /* Reduce side margin for mobile */
+    }
+
+    .arrow-button {
+        padding: 0;
     }
 }

@@ -450,7 +450,8 @@ class LessonViewset(ViewSet):
         
     def status(self, request, status):
         filters = {
-            "registration__teacher__user_id": request.user.id
+            "registration__teacher__user_id": request.user.id,
+            "booked_datetime__gte": datetime.now().date()
         }
         if status == "pending":
             filters['status__in'] = ["PENTE", "PENST"]
@@ -462,7 +463,9 @@ class LessonViewset(ViewSet):
         else:
             is_bangkok_time = False
         try:
-            lessons = Lesson.objects.select_related("registration__student__user", "registration__course").filter(**filters).order_by("booked_datetime")
+            lessons = Lesson.objects.select_related(
+                "registration__student__user", "registration__course"
+                ).filter(**filters).order_by("booked_datetime")
         except ValidationError as e:
             return Response({"error_message": e}, status=400)
         ser = ListLessonSerializer(instance=lessons, many=True)
@@ -473,38 +476,7 @@ class LessonViewset(ViewSet):
                 data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
         return Response(ser.data, status=200)
     
-    
-    def list(self, request):
-        filters = {
-            "registration__teacher__user_id": request.user.id,
-            }
 
-        date = request.GET.get('date', None)
-        if date:
-            date = datetime.strptime(date, '%Y-%m-%d')
-            filters['booked_datetime__gte'] = date
-        _is_bangkok_time = request.GET.get("bangkok_time", "true")
-        if _is_bangkok_time == "true":
-            is_bangkok_time = True
-        else:
-            is_bangkok_time = False
-        
-        status = request.GET.get('status', None)
-        if status == "pending":
-            filters['status__in'] = ["PENTE", "PENST"]
-        elif status == "confirm":
-            filters['status'] = "CON"
-        lessons = Lesson.objects.select_related("registration__student__user").filter(
-                **filters
-            ).order_by("booked_datetime")
-        ser = ListLessonSerializer(instance=lessons, many=True) 
-        if is_bangkok_time:
-            for data in ser.data:
-                dt = isoparse(data["booked_datetime"])
-                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
-                data["booked_datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')
-        return Response(ser.data)
-    
     def day(self, request):
         date = request.GET.get('date', None)
         if not date:
@@ -649,8 +621,16 @@ class GuestViewset(ViewSet):
                 
     def status(self, request, status):
         filters = {
-            "teacher__user_id": request.user.id
+            "teacher__user_id": request.user.id,
+            "datetime__gte": datetime.now().date()
         }
+
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
+
         if status == "pending":
             filters['status'] = "PEN"
         elif status == "confirm":
@@ -660,6 +640,11 @@ class GuestViewset(ViewSet):
         except ValidationError as e:
             return Response({"error_message": e}, status=400)
         ser = ListGuestLessonSerializer(instance=lessons, many=True)
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')       
         return Response(ser.data, status=200)
     
     def list(self, request):
@@ -671,7 +656,13 @@ class GuestViewset(ViewSet):
         if date:
             date = datetime.strptime(date, '%Y-%m-%d')
             filters['datetime__date'] = date
-        
+
+        _is_bangkok_time = request.GET.get("bangkok_time", "true")
+        if _is_bangkok_time == "true":
+            is_bangkok_time = True
+        else:
+            is_bangkok_time = False
+
         status = request.GET.get('status', None)
         if status == "pending":
             filters['status'] = "PEN"
@@ -681,7 +672,12 @@ class GuestViewset(ViewSet):
         lessons = GuestLesson.objects.filter(
                 **filters
             ).order_by("datetime")
-        ser = ListGuestLessonSerializer(instance=lessons, many=True)        
+        ser = ListGuestLessonSerializer(instance=lessons, many=True) 
+        if is_bangkok_time:
+            for data in ser.data:
+                dt = isoparse(data["datetime"])
+                bangkok_time = timezone.make_naive(dt).astimezone(gmt7)
+                data["datetime"] = bangkok_time.strftime('%Y-%m-%dT%H:%M:%SZ')       
         return Response(ser.data)
     
 
