@@ -11,6 +11,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework_simplejwt.tokens import AccessToken, RefreshToken
 from utils import encrypt_token, decrypt_token
 from django.utils import timezone
+from django.shortcuts import render
 
 User = get_user_model()
 _timezone =  timezone.get_current_timezone_name()
@@ -56,10 +57,9 @@ class GoogleCalendarCallbackView(APIView):
         # Decrypt the state stored in the session
         encrypted_state = request.GET.get('state')
         try:
-            # Decrypt the state
             decrypted_state = decrypt_token(encrypted_state)
         except Exception as e:
-            return Response({"error_message": "Invalid state token."}, status=403)
+            return render(request, "google_calendar_linked_confirmation.html", {"success": False})
 
         authorization_response = request.build_absolute_uri()
         try:
@@ -67,7 +67,7 @@ class GoogleCalendarCallbackView(APIView):
             user_id = access_token['user_id']
             user = User.objects.get(id=user_id)
         except Exception as e:
-            return Response({"error_message": "Invalid or expired token."}, status=403)
+            return render(request, "google_calendar_linked_confirmation.html", {"success": False})
 
         # Exchange authorization code for credentials
         flow = Flow.from_client_secrets_file(
@@ -79,12 +79,12 @@ class GoogleCalendarCallbackView(APIView):
         try:
             flow.fetch_token(authorization_response=authorization_response)
         except Exception as e:
-            return Response({"error": f"Token exchange failed: {str(e)}"}, status=400)
+            return render(request, "google_calendar_linked_confirmation.html", {"success": False})
 
         # Save encrypted credentials in user's database record
         credentials = flow.credentials
         encrypted_token = encrypt_token(credentials.token)
-        
+
         user.google_credentials = {
             'token': encrypted_token,
             'token_uri': credentials.token_uri,
@@ -92,31 +92,29 @@ class GoogleCalendarCallbackView(APIView):
             'client_secret': credentials.client_secret,
             'scopes': credentials.scopes,
         }
-        
+
         credentials = Credentials(
             token=credentials.token,
             refresh_token=credentials.refresh_token,
             token_uri=credentials.token_uri,
-            client_id= credentials.client_id,
+            client_id=credentials.client_id,
             client_secret=credentials.client_secret,
-            scopes= credentials.scopes
+            scopes=credentials.scopes
         )
         service = build("calendar", "v3", credentials=credentials)
         calendar_body = {
             "summary": "Timeable - Schedule",
             "timeZone": _timezone,
-            "description": "Your institute schdule"
+            "description": "Your institute schedule"
         }
         try:
             new_calendar = service.calendars().insert(body=calendar_body).execute()
-            user.google_calendar_id  = new_calendar['id']  
-            print(f"New calendar created: {new_calendar}")
+            user.google_calendar_id = new_calendar['id']
         except Exception as e:
-            return Response({"error": f"Failed to create new calendar: {str(e)}"}, status=500)
-        
-        user.save() 
-        return Response({"message": "Google Calendar linked successfully!"})
+            return render(request, "google_calendar_linked_confirmation.html", {"success": False})
 
+        user.save()
+        return render(request, "google_calendar_linked_confirmation.html", {"success": True})
 
 class CreateGoogleCalendarEventView(APIView):
     """

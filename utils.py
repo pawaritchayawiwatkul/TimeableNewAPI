@@ -14,6 +14,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from django.utils.timezone import localtime
 import pytz
+from django.core.mail import EmailMessage
+from django.template.loader import render_to_string
 
 # Generate a key and store it securely (should be done once and stored securely)
 
@@ -162,7 +164,7 @@ def merge_schedule(validated_data, unavailables):
 
 def compute_available_time(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson], guest_lessons:List[GuestLesson], date_time, start, stop, duration):
     duration = timedelta(minutes=duration)
-    interval = duration
+    interval = timedelta(minutes=30)
     available_times = []
 
     current_time = timezone.make_aware(datetime.combine(date_time, start), timezone=gmt7)
@@ -221,3 +223,88 @@ def is_available(unavailables:List[UnavailableTimeOneTime], lessons:List[Lesson]
         if (start_ <= start_time < stop_) or (start_ < end_time <= stop_):
             return False
     return True
+
+def send_cancellation_email_html(student_name, tutor_name, lesson_date, lesson_time, duration, mode, student_email):
+    # Prepare the email subject
+    email_subject = f"Lesson Cancellation : {tutor_name}"
+
+    # Render the email content as HTML
+    email_body = render_to_string("email/lesson_canceled.html", {
+        "student_name": student_name,
+        "tutor_name": tutor_name,
+        "lesson_date": lesson_date,
+        "lesson_time": lesson_time,
+        "duration": duration,
+        "mode": mode,
+    })
+
+    # Create the email object
+    email = EmailMessage(
+        subject=email_subject,
+        body=email_body,
+        from_email="hello.timeable@gmail.com",  # Sender email
+        to=[student_email],                    # Recipient email
+    )
+
+    # Specify the content type as HTML
+    email.content_subtype = "html"
+
+    # Send the email
+    email.send()
+
+def send_lesson_requested_email(student_name, tutor_name, requested_date, requested_time, duration, mode, student_email):
+    # Prepare the email subject
+    email_subject = f"Lesson Requested: {tutor_name}"
+
+    # Render the email content as HTML
+    email_body = render_to_string("email/lesson_requested.html", {
+        "student_name": student_name,
+        "tutor_name": tutor_name,
+        "requested_date": requested_date,
+        "requested_time": requested_time,
+        "duration": duration,
+        "mode": mode,
+    })
+
+    # Create the email object
+    email = EmailMessage(
+        subject=email_subject,
+        body=email_body,
+        from_email="hello.timeable@gmail.com",  # Sender email
+        to=[student_email],                    # Recipient email
+    )
+
+    # Specify the content type as HTML
+    email.content_subtype = "html"
+
+    # Send the email
+    email.send()
+
+def send_lesson_confirmation_email(user_name, tutor_name, student_name, lesson_date, lesson_time, lesson_duration, mode, user_email):
+    # Prepare the email subject
+    email_subject = "Lesson Confirmation"
+
+    # Render the email content as HTML
+    email_body = render_to_string("email/lesson_confirm.html", {
+        "user_name": user_name,
+        "tutor_name": tutor_name,
+        "student_name": student_name,
+        "lesson_date": lesson_date,
+        "lesson_time": lesson_time,
+        "lesson_duration": lesson_duration,
+        "mode": mode,
+    })
+
+    # Create the email object
+    email = EmailMessage(
+        subject=email_subject,
+        body=email_body,
+        from_email="hello.timeable@gmail.com",  # Sender email
+        to=[user_email],                       # Recipient email
+    )
+
+    # Specify the content type as HTML
+    email.content_subtype = "html"
+
+    # Send the email
+    email.send()

@@ -12,7 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ViewSet
 from django.db.models import Prefetch
-from utils import merge_schedule, compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event
+from utils import merge_schedule, compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event, send_lesson_confirmation_email, send_cancellation_email_html
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.db.models import Prefetch
@@ -65,6 +65,7 @@ class UnavailableTimeViewset(ViewSet):
             return Response(status=400)
         date = datetime.strptime(date, '%Y-%m-%d')
         day_number = date.weekday() + 1
+        print(day_number)
         teacher = Teacher.objects.prefetch_related(
             Prefetch(
                 "unavailable_reg",
@@ -584,7 +585,19 @@ class GuestViewset(ViewSet):
         lesson.save()
         
         if lesson.email != "":
-            send_mail("Lesson Request Cancel", "Unfortunately the requested was unavailable", "hello.timeable@gmail.com", [lesson.email], fail_silently=True)
+            localized_datetime = lesson.datetime.astimezone(gmt7)
+            lesson_date = localized_datetime.strftime("%Y-%m-%d")
+            lesson_time = localized_datetime.strftime("%H:%M")
+
+            send_cancellation_email_html(
+                student_name=lesson.name,  # Assuming `name` is the student name in the GuestLesson model
+                tutor_name=request.user.first_name,  # Teacher's first name
+                lesson_date=lesson_date,
+                lesson_time=lesson_time,
+                duration=lesson.duration,
+                mode="Online" if lesson.online else "Onsite",  # Adjust based on the lesson mode
+                student_email=lesson.email
+            )
 
         if lesson.teacher_event_id:
             delete_google_calendar_event(request.user, lesson.teacher_event_id)
@@ -595,30 +608,47 @@ class GuestViewset(ViewSet):
         try:
             lesson = GuestLesson.objects.get(code=code, teacher__user__id=request.user.id, status="PEN")
         except GuestLesson.DoesNotExist:
-            return Response({'failed': "No Lesson matches the given query."}, status=200)
-        lesson.status = 'CON'  
+            return Response({'failed': "No Lesson matches the given query."}, status=400)
+        
+        lesson.status = 'CON'
 
+        # Calculate the lesson's start and end times
         finished = lesson.datetime + timedelta(minutes=lesson.duration)
         start_time_str = lesson.datetime.strftime("%Y-%m-%dT%H:%M:%S%z")
         end_time_str = finished.strftime("%Y-%m-%dT%H:%M:%S%z")
-        t_event_id = create_calendar_event(request.user, summary="Confirmed Lesson ( Student | Course )", description="{}", start=start_time_str, end=end_time_str)
+
+        # Create a calendar event for the teacher
+        t_event_id = create_calendar_event(
+            request.user, 
+            summary="Confirmed Lesson ( Student | Course )", 
+            description="{}", 
+            start=start_time_str, 
+            end=end_time_str
+        )
+
         if t_event_id:
             lesson.teacher_event_id = t_event_id
         lesson.save()
 
-        if lesson.email != "":
-            formatted_datetime = lesson.datetime.strftime("%Y-%m-%d %H:%M")  # Adjust the format as needed
+        # Send confirmation email
+        if lesson.email:
+            localized_datetime = lesson.datetime.astimezone(gmt7)
+            formatted_date = localized_datetime.strftime("%Y-%m-%d")
+            formatted_time = localized_datetime.strftime("%H:%M")
 
-            send_mail(
-                "Lesson Request Confirmed",
-                f"Your lesson on {formatted_datetime} is confirmed",
-                "hello.timeable@gmail.com",
-                [lesson.email],
-                fail_silently=True
-            )      
-            
+            send_lesson_confirmation_email(
+                user_name=lesson.name,  # Assuming the guest lesson has a `name` field
+                tutor_name=request.user.first_name,  # Teacher's first name
+                student_name=lesson.name,  # Guest student's name
+                lesson_date=formatted_date,
+                lesson_time=formatted_time,
+                lesson_duration=lesson.duration,
+                mode="Online" if lesson.online else "Onsite",  # Adjust based on the lesson mode
+                user_email=lesson.email
+            )
+
         return Response({'success': 'Lesson confirmed successfully.'}, status=200)
-                
+    
     def status(self, request, status):
         filters = {
             "teacher__user_id": request.user.id,

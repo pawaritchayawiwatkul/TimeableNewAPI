@@ -87,6 +87,12 @@ function failedBooking() {
 
 function scrollToSection() {
     const targetX = currentIndex * scrollContainer.clientWidth / 3;
+
+    // Instantly scroll the page to the top
+    window.scrollTo(0, 0);
+
+    // Add smooth transition for the scrollContainer
+    scrollContainer.style.transition = 'transform 0.5s ease'; // Adjust duration as needed
     scrollContainer.style.transform = `translateX(-${targetX}px)`;
 }
 
@@ -183,6 +189,7 @@ function validateForm() {
         errorMessage.textContent = "Please select a type.";
         isValid = false;
     }
+    // return true;
     return isValid
 }
 
@@ -201,7 +208,6 @@ function showError(element, message) {
 //         this.classList.add("active");
 //     });
 // });
-
 document.querySelectorAll('.duration-buttons button').forEach(button => {
     button.addEventListener('click', function () {
         const duration = button.value;

@@ -6,7 +6,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Horizontal Scrolling Inside Floating Container</title>
+    <title>Guest Booking Form | Timeable</title>
+    <meta name="description"
+        content="Easily schedule your session using our guest booking form. No account needed—simply select your preferred time and tutor to book seamlessly with Timeable.">
+    <meta name="author" content="Timeable">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
@@ -111,8 +114,8 @@
                     <div class="row">
                         <div class="col-12 col-md-3 mb-3">
                             <div class="left-section">
+                                <h3>Date</h3>
                                 <div class="form-group">
-                                    <h3>Date</h3>
                                     <input type="date" id="dateField" name="date" required placeholder="YYYY-MM-DD">
                                     <span class="error-message" id="emailError"></span>
                                 </div>
@@ -120,19 +123,22 @@
                                 <div class="calendar-dropdown">
                                     <div class="custom-dropdown">
                                         <select id="duration" class="form-select">
-                                            <option value="15">15 Minutes</option>
                                             <option value="30" selected>30 Minutes</option>
-                                            <option value="45">45 Hour</option>
                                             <option value="60">1 Hour</option>
-                                            <option value="75">1 Hour 15 Minutes</option>
                                             <option value="90">1 Hour 30 Minutes</option>
-                                            <option value="105">1 Hour 45 Minutes</option>
+                                            <option value="120">2 Hour</option>
+                                            <option value="150">2 Hour 30 Minutes</option>
+                                            <option value="180">3 Hour</option>
+                                            <option value="210">3 Hour 30 Minutes</option>
+                                            <option value="240">4 Hour</option>
+                                            <option value="270">4 Hour 30 Minutes</option>
+                                            <option value="300">5 Hour</option>
                                         </select>
                                     </div>
                                     <div class="duration-buttons">
-                                        <button class="" value="30">30 minutes</button>
                                         <button class="" value="60">1 hour</button>
                                         <button class="" value="90">1 hour 30 minutes</button>
+                                        <button class="" value="120">2 hour</button>
                                     </div>
                                 </div>
                             </div>

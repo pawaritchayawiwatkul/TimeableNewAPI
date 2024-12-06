@@ -13,7 +13,7 @@ from django.core.exceptions import ValidationError
 from student.serializers import GuestLessonSerializer, ListLessonSerializer, CourseRegistrationSerializer, LessonSerializer, ListTeacherSerializer, ListCourseRegistrationSerializer, ListLessonDateTimeSerializer, ProfileSerializer
 from django.shortcuts import get_object_or_404
 from django.shortcuts import render
-from utils import compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event
+from utils import compute_available_time, is_available, send_notification, create_calendar_event, delete_google_calendar_event, send_lesson_requested_email
 from django.core.mail import send_mail
 import pytz
 from dateutil.parser import isoparse  # Use this for ISO 8601 parsing
@@ -394,7 +394,7 @@ class GuestViewset(ViewSet):
         if ser.is_valid():
             day_number = booked_date.weekday() + 1
             try:
-                teacher = Teacher.objects.select_related("school").prefetch_related(
+                teacher = Teacher.objects.select_related("school", "user").prefetch_related(
                     Prefetch(
                         "unavailable_reg",
                         queryset=UnavailableTimeRegular.objects.filter(
@@ -415,6 +415,8 @@ class GuestViewset(ViewSet):
                 return Response({"Invalid": "UUID"}, status=400)
             name = ser.validated_data.get("name")
             duration = ser.validated_data.get("duration")
+            mode = "Online" if ser.validated_data.get("online", False) else "Onsite"  
+
             booked_lessons = Lesson.objects.filter(
                 status__in=["CON", "PENTE", "PENST"],
                 registration__teacher=teacher,
@@ -434,9 +436,17 @@ class GuestViewset(ViewSet):
             lesson = ser.create(validated_data=ser.validated_data)
             email = lesson.email
             if email != "":
-                formatted_datetime = lesson.datetime.strftime("%Y-%m-%d %H:%M")  # Adjust the format as needed
-                send_mail("Lesson Requested", f"Your lesson on {formatted_datetime} is requested", "hello.timeable@gmail.com", [email], fail_silently=True)
-                
+                localized_datetime = lesson.datetime.astimezone(gmt7)
+                formatted_datetime = localized_datetime.strftime("%Y-%m-%d %H:%M")
+                send_lesson_requested_email(
+                    student_name=name,
+                    tutor_name=teacher.user.first_name,
+                    requested_date=formatted_datetime.split(" ")[0],  # Date part
+                    requested_time=formatted_datetime.split(" ")[1],  # Time part
+                    duration=duration,
+                    mode=mode,
+                    student_email=email,
+                )
             send_notification(teacher.user_id, "Lesson Requested!", f'{name} on {booked_date.strftime("%Y-%m-%d")} at {booked_date.strftime("%H:%M")}.')
 
             return Response({"booked_date": booked_date}, status=200)
@@ -444,56 +454,83 @@ class GuestViewset(ViewSet):
             return Response(ser.errors, status=400)
         
     def get_available_time(self, request, code):
-        date_str = request.GET.get("date", None)
+        start_date_str = request.GET.get("start_date", None)
+        end_date_str = request.GET.get("end_date", None)
         duration = request.GET.get("duration", None)
-        if not date_str:
-            return Response({"error_messages": ["Please Provide Date"]}, status=400)
+
+        # Validate inputs
+        if not start_date_str or not end_date_str:
+            return Response({"error_messages": ["Please Provide Start and End Dates"]}, status=400)
         if not duration:
             return Response({"error_messages": ["Please Provide Duration"]}, status=400)
+
         try:
             duration = int(duration)
         except ValueError:
             return Response({"error_messages": ["Invalid Duration"]}, status=400)
+
         try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d").date()
+            end_date = datetime.strptime(end_date_str, "%Y-%m-%d").date()
         except ValueError:
-            return Response({"error_message": ["Invalid Date Format"]}, status=400)
-        day_number = date_obj.weekday() + 1
+            return Response({"error_messages": ["Invalid Date Format"]}, status=400)
+
+        if end_date < start_date:
+            return Response({"error_messages": ["End Date Cannot Be Before Start Date"]}, status=400)
 
         try:
             teacher = Teacher.objects.select_related("school").prefetch_related(
-                        Prefetch(
-                            "unavailable_reg",
-                            queryset=UnavailableTimeRegular.objects.filter(
-                                day=str(day_number)
-                            ).only("start", "stop"),
-                            to_attr="regular"
-                        ),
-                        Prefetch(
-                            "unavailable_once",
-                            queryset=UnavailableTimeOneTime.objects.filter(
-                                date=date_obj
-                            ).only("start", "stop"),
-                            to_attr="once"
-                        ),
-                    ).get(user__uuid=code)
+                Prefetch(
+                    "unavailable_reg",
+                    queryset=UnavailableTimeRegular.objects.only("day", "start", "stop"),
+                    to_attr="regular"
+                ),
+                Prefetch(
+                    "unavailable_once",
+                    queryset=UnavailableTimeOneTime.objects.filter(
+                        date__range=(start_date, end_date)
+                    ).only("start", "stop", "date"),
+                    to_attr="once"
+                ),
+            ).get(user__uuid=code)
         except Teacher.DoesNotExist:
             return Response({"error_messages": "Teacher Doesn't Exist"}, status=400)
-        
-        booked_lessons = Lesson.objects.select_related("registration__course").filter(
-            status__in=["CON", "PENTE", "PENST"],
-            registration__teacher=teacher,
-            booked_datetime__date=date_obj
-        )
 
-        guest_lessons = GuestLesson.objects.filter(
-            teacher=teacher,
-            datetime__date=date_obj
-        )
-        unavailables = teacher.regular + teacher.once
-        start = teacher.school.start
-        stop = teacher.school.stop
-        available_times = compute_available_time(unavailables, booked_lessons, guest_lessons, date_obj, start, stop, duration)
-        return Response(data={
-            "availables":available_times
-        })
+        # Prepare results
+        results = {}
+        current_date = start_date
+
+        while current_date <= end_date:
+            day_number = current_date.weekday() + 1
+
+            # Filter booked lessons and guest lessons for the current date
+            booked_lessons = Lesson.objects.select_related("registration__course").filter(
+                status__in=["CON", "PENTE", "PENST"],
+                registration__teacher=teacher,
+                booked_datetime__date=current_date
+            )
+            guest_lessons = GuestLesson.objects.filter(
+                teacher=teacher,
+                datetime__date=current_date
+            )
+
+            # Get regular and one-time unavailabilities for the current day
+            unavailables = [
+                *[u for u in teacher.regular if u.day == str(day_number)],
+                *[u for u in teacher.once if u.date == current_date]
+            ]
+
+            # Compute available times for the current day
+            start = teacher.school.start
+            stop = teacher.school.stop
+            available_times = compute_available_time(
+                unavailables, booked_lessons, guest_lessons, current_date, start, stop, duration
+            )
+
+            # Add to results
+            results[current_date.strftime("%Y-%m-%d")] = available_times
+
+            # Move to the next day
+            current_date += timedelta(days=1)
+
+        return Response(data={"available_times": results})

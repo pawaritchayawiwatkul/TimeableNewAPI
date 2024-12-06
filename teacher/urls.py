@@ -14,7 +14,7 @@ studentAddView = views.StudentViewset.as_view({
 })
 
 
-blockTimeList = views.UnavailableTimeViewset.as_view({
+blockTimeRetrieve = views.UnavailableTimeViewset.as_view({
     'get': 'retrieve'
 })
 
@@ -162,7 +162,7 @@ urlpatterns = format_suffix_patterns([
 
     path('unavailable/onetime', oneTimeUnavailable, name='unavailable-onetime'),
     path('unavailable/regular', regularUnavailable, name='unavailable-regular'),
-    path('unavailable/', blockTimeList, name='block-time'),
+    path('unavailable/', blockTimeRetrieve, name='block-time'),
     path('unavailable/<slug:code>/remove', blockTimeRemove, name='block-time'),
 
     path('guest', guestListViewSet, name='guest-list'),
