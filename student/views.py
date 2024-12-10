@@ -128,10 +128,12 @@ class CourseViewset(ViewSet):
                 to_attr="once"
             ),
         ).get(uuid=code)
+
+        previous_date = date_obj - timedelta(days=1)
         booked_lessons = Lesson.objects.filter(
             status__in=["CON", "PENTE", "PENST"],
             registration__teacher=regis.teacher,
-            booked_datetime__date=date_obj
+            booked_datetime__date__in=[previous_date, date_obj]
         )
 
         unavailables = regis.teacher.regular + regis.teacher.once
@@ -358,14 +360,15 @@ class LessonViewset(ViewSet):
             return Response({"error": "Invalid Course UUID"}, status=400)
         ser = LessonSerializer(data=data)
         if ser.is_valid():
+            previous_date = booked_date - timedelta(days=1)
             booked_lessons = Lesson.objects.filter(
                 status__in=["CON", "PENTE", "PENST"],
                 registration__teacher=regis.teacher,
-                booked_datetime__date=booked_date
+                booked_datetime__date__in=[previous_date, booked_date]
             )
             guest_lessons = GuestLesson.objects.filter(
                 teacher=regis.teacher,
-                datetime__date=booked_date
+                datetime__date__in=[previous_date, booked_date]
             )
             unavailables = regis.teacher.regular + regis.teacher.once
             if not is_available(unavailables, booked_lessons, guest_lessons, booked_date, regis.course.school.start, regis.course.school.stop, regis.course.duration):

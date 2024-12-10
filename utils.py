@@ -183,6 +183,8 @@ def compute_available_time(unavailables:List[UnavailableTimeOneTime], lessons:Li
         for lesson in lessons:
             start_ = lesson.booked_datetime
             stop_ = start_ + timedelta(minutes=lesson.registration.course.duration)
+            print(start_.tzinfo, start_, stop_)
+            print(current_time)
             if (start_ <= current_time < stop_) or (start_ < end_time <= stop_):
                 _is_available = False
                 break

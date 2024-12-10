@@ -10,7 +10,6 @@ lessonListView = views.LessonViewset.as_view({
 
 studentAddView = views.StudentViewset.as_view({
     'post': 'add',
-    # 'get': 'list'
 })
 
 

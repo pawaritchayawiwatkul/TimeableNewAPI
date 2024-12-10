@@ -189,7 +189,6 @@ function validateForm() {
         errorMessage.textContent = "Please select a type.";
         isValid = false;
     }
-    // return true;
     return isValid
 }
 

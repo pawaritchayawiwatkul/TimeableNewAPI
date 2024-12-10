@@ -22,7 +22,7 @@ from dateutil.parser import isoparse  # Use this for ISO 8601 parsing
 
 _timezone =  timezone.get_current_timezone()
 gmt7 = pytz.timezone('Asia/Bangkok')
-
+print(_timezone)
 @permission_classes([IsAuthenticated])
 class UnavailableTimeViewset(ViewSet):
     def one_time(self, request):
@@ -300,10 +300,11 @@ class RegistrationViewset(ViewSet):
             ),
         ).get(uuid=code)
 
+        previous_date = date_obj - timedelta(days=1)
         booked_lessons = Lesson.objects.filter(
             status__in=["CON", "PENTE", "PENST"],
             registration__teacher=regis.teacher,
-            booked_datetime__date=date_obj
+            booked_datetime__date__in=[previous_date, date_obj]
         )
         
         guest_lessons = GuestLesson.objects.filter(
@@ -546,14 +547,16 @@ class LessonViewset(ViewSet):
         
         ser = LessonSerializer(data=data)
         if ser.is_valid():
+            previous_date = booked_date - timedelta(days=1)
+
             booked_lessons = Lesson.objects.filter(
                 status__in=["CON", "PENTE", "PENST"],
                 registration__teacher=regis.teacher,
-                booked_datetime__date=booked_date
+                booked_datetime__date__in=[previous_date, booked_date]
             )
             guest_lessons = GuestLesson.objects.filter(
                 teacher=regis.teacher,
-                datetime__date=booked_date
+                datetime__date__in=[previous_date, booked_date]
             )
             unavailables = regis.teacher.regular + regis.teacher.once
             start = regis.course.school.start

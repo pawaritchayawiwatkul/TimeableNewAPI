@@ -23,13 +23,19 @@ function convertTo12HourFormat(time) {
     return `${hour}:${minutes} ${period}`;
 }
 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
 // Updated fetchAvailableTime to handle date ranges
 async function fetchAvailableTime(startDate, endDate, duration) {
     const start = formatDate(startDate);
     const end = formatDate(endDate);
     const dateKey = `${start}-${end}-${duration}`;
 
-    if (!start || !end || !duration) return {};
+    if (!start || !end || !duration) {
+        return {};
+    };
 
     // Check if data is already cached
     if (dateKey in availableTime) {
@@ -38,29 +44,52 @@ async function fetchAvailableTime(startDate, endDate, duration) {
 
     try {
         // Fetch available times from the API
+        await delay(1000); // Delay of 1000ms (1 second)
+
         const response = await fetch(`/student/guest/${uuid}/availability?start_date=${start}&end_date=${end}&duration=${duration}`);
-        const data = await response.json();
-        availableTime[dateKey] = data.available_times; // Cache the results
-        return data.available_times;
+        if (response.status == 200) {
+            const data = await response.json();
+            availableTime[dateKey] = data.available_times; // Cache the results
+            return data.available_times;
+        } else {
+            return {};
+        }
+
     } catch (error) {
         console.error("Error fetching available times:", error);
         return {};
     }
 }
 
-// Updated updateTimeslots to handle multiple days
 async function updateTimeslots() {
     if (!updatingTime) {
         updatingTime = true;
 
         const timeslotGrid = document.querySelector('.timeslots-grid');
-        const startDayOffset = 2; // Number of days to show after current day (current + 2 days)
+        const startDayOffset = 2; // Number of days to show after the current day
         const endDate = new Date(currentDate);
         endDate.setDate(currentDate.getDate() + startDayOffset);
 
+        const duration = document.getElementById("duration").value;
+
+        // Clear timeslot content for all days before fetching
+        for (let i = 0; i <= startDayOffset; i++) {
+            const dayIndex = i; // Adjust index to start from 0
+            const day = new Date(currentDate);
+            day.setDate(currentDate.getDate() + i);
+
+            const timeslotElement = timeslotGrid.querySelector(`.day-timeslots[data-index="${dayIndex}"]`);
+            if (timeslotElement) {
+                // Clear the timeslot content
+                clearDayTimeslotContent(timeslotElement);
+
+                // Update headers synchronously
+                updateDayHeader(timeslotElement, day);
+            }
+        }
+
         try {
             // Fetch available times for the range
-            const duration = document.getElementById("duration").value;
             const availableTimes = await fetchAvailableTime(currentDate, endDate, duration);
 
             // Iterate through the days and update each day's timeslots
@@ -72,8 +101,11 @@ async function updateTimeslots() {
 
                 const timeslotElement = timeslotGrid.querySelector(`.day-timeslots[data-index="${dayIndex}"]`);
                 if (timeslotElement) {
-                    updateDayHeader(timeslotElement, day); // Update header synchronously
-                    allDays.push({ element: timeslotElement, date: day, timeslots: availableTimes[formatDate(day)] || [] });
+                    allDays.push({
+                        element: timeslotElement,
+                        date: day,
+                        timeslots: availableTimes[formatDate(day)] || [],
+                    });
                 }
             }
 
@@ -86,6 +118,15 @@ async function updateTimeslots() {
         }
 
         updatingTime = false;
+    }
+}
+
+function clearDayTimeslotContent(element) {
+    const timeslotsContainer = element.querySelector('.timeslots');
+
+    // Clear existing timeslot buttons
+    if (timeslotsContainer) {
+        timeslotsContainer.innerHTML = ""; // Remove all timeslot content
     }
 }
 
@@ -129,6 +170,9 @@ function updateDayHeader(dayTimeslotElement, date) {
 }
 
 function moveDate(direction) {
+    if (updatingTime) {
+        return;
+    }
     const daysToOffset = 3 * direction;
 
     // Calculate tomorrow's date

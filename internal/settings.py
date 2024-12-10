@@ -177,7 +177,6 @@ DJOSER
 DJOSER = {
     "LOGIN_FIELD": "email",
     'PASSWORD_RESET_CONFIRM_URL': 'auth/password/reset/confirm/{uid}/{token}/',   
-    # 'ACTIVATION_URL': 'auth/users/activate_request/{uid}/{token}',
     'SERIALIZERS' : {
         'user_create': 'core.serializers.UserCreateSerializer',
         "user": "djoser.serializers.UserSerializer",
@@ -187,6 +186,7 @@ DJOSER = {
     'EMAIL': {
         'password_reset': 'core.email.PasswordResetEmailTemplate'
     },
+    # 'ACTIVATION_URL': 'auth/users/activate_request/{uid}/{token}',
     # 'SEND_ACTIVATION_EMAIL': True,
     # 'SEND_CONFIRMATION_EMAIL':True,
 }
@@ -212,8 +212,7 @@ EMAIL_HOST = os.getenv("EMAIL_HOST")
 EMAIL_PORT = os.getenv("EMAIL_PORT")
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
-EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL")
-
+EMAIL_USE_SSL = True
 
 DEBUG_TOOLBAR_CONFIG = {
     "SHOW_TOOLBAR_CALLBACK": lambda request: True,
