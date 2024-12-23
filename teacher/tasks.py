@@ -6,7 +6,9 @@ from django.utils import timezone
 from pytz import timezone as ptimezone
 from utils import send_notification
 from celery_singleton import Singleton
+import pytz
 
+gmt7 = pytz.timezone('Asia/Bangkok')
 
 # Send Notifications
 @shared_task(base=Singleton)
@@ -21,14 +23,15 @@ def send_lesson_notification():
     ))
     if upcoming_lessons:
         for lesson in upcoming_lessons:
+            gmt_time = lesson.booked_datetime.astimezone(gmt7)
             send_notification(
                 lesson.registration.student.user_id, 
                 "Lesson Notification", 
-                f'You have a lesson with {lesson.registration.teacher.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.')
+                f'You have a lesson with {lesson.registration.teacher.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.')
             send_notification(
                 lesson.registration.teacher.user_id, 
                 "Lesson Notification",  
-                f'You have a lesson with {lesson.registration.student.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.')
+                f'You have a lesson with {lesson.registration.student.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.')
             lesson.notified = True
             
         Lesson.objects.bulk_update(upcoming_lessons, fields=["notified"])
@@ -46,13 +49,14 @@ def send_guest_lesson_notification():
     ))
     if upcoming_guest_lessons:
         for lesson in upcoming_guest_lessons:
+            gmt_time = lesson.datetime.astimezone(gmt7)
             send_notification(
                 lesson.teacher.user_id, 
                 "Lesson Notification",  
-                f'You have a lesson with {lesson.name} on {lesson.datetime.strftime("%Y-%m-%d")} at {lesson.datetime.strftime("%H:%M")}.')
+                f'You have a lesson with {lesson.name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.')
             send_mail(
                 "Lesson Notification", 
-                f'You have a lesson with {lesson.teacher.user.first_name} on {lesson.datetime.strftime("%Y-%m-%d")} at {lesson.datetime.strftime("%H:%M")}.',
+                f'You have a lesson with {lesson.teacher.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.',
                 "hello.timeable@gmail.com", 
                 [lesson.email], 
                 fail_silently=True)

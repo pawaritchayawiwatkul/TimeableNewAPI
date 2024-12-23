@@ -40,9 +40,17 @@ class StudentTeacherRelation(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE, related_name="student_relation")
     favorite_teacher = models.BooleanField(default=False)
     favorite_student = models.BooleanField(default=False)
-    student_first_name = models.CharField(default="unknown124")
-    student_last_name = models.CharField(default="unknown124")
+    student_first_name = models.CharField(default="unknown")
+    student_last_name = models.CharField(default="unknown")
     student_color = models.CharField(default="C5E5DB", max_length=6)
+
+    def save(self, *args, **kwargs):
+        # Automatically set student names if they are still the default value
+        if self.student_first_name == "unknown":
+            self.student_first_name = self.student.user.first_name
+        if self.student_last_name == "unknown":
+            self.student_last_name = self.student.user.last_name
+        super().save(*args, **kwargs)
 
 class Student(models.Model):
     course = models.ManyToManyField(to=Course, through=CourseRegistration, related_name="student")
@@ -91,7 +99,65 @@ class Lesson(models.Model):
             self.code = self._generate_unique_code(12)
         super(Lesson, self).save(*args, **kwargs)
 
-        
+    def generate_title(self, is_teacher):
+        duration = self.registration.course.duration
+        subject_user = self.registration.student.user if is_teacher else self.registration.teacher.user
+        if self.online:
+            title = f"{subject_user.first_name} {subject_user.last_name} - {duration} min (Online)"
+        else:
+            title = f"{subject_user.first_name} {subject_user.last_name} - {duration} min"
+        return title
+
+    def generate_description(self, is_teacher):
+        """
+        Generates a detailed description string for the lesson.
+
+        Args:
+            is_teacher (bool): Determines the perspective of the description.
+                                True for teacher, False for student.
+
+        Returns:
+            str: A formatted description string.
+        """
+        # Determine the mode of the lesson
+        mode = "Online" if self.online else "In-Person"
+
+        # Format the booked datetime
+        datetime_formatted = self.booked_datetime.strftime("%Y-%m-%d %H:%M %Z")
+
+        # Handle optional fields gracefully
+        notes_display = self.notes if self.notes else "N/A"
+
+        # Determine the subject user based on the perspective
+        if is_teacher:
+            subject_user = self.registration.student.user
+        else:
+            subject_user = self.registration.teacher.user
+
+        # Retrieve the full name and email of the subject user
+        full_name = f"{subject_user.first_name} {subject_user.last_name}"
+        email_display = subject_user.email if subject_user.email else "N/A"
+
+        # Retrieve course information
+        course = self.registration.course
+        course_name = course.name if course else "N/A"
+        course_description = course.description if course else "N/A"
+
+        # Construct the description string
+        description = (
+            f"Lesson Details:\n\n"
+            f"Name: {full_name}\n"
+            f"Email: {email_display}\n"
+            f"Course: {course_name}\n"
+            f"Course Description: {course_description}\n"
+            f"Date & Time: {datetime_formatted}\n"
+            f"Duration: {self.registration.course.duration} minutes\n"
+            f"Mode: {mode}\n"
+            f"Notes: {notes_display}\n"
+        )
+
+        return description
+    
 class GuestLesson(models.Model):
     STATUS_CHOICES = [
         ('PEN', 'Pending'),
@@ -112,6 +178,7 @@ class GuestLesson(models.Model):
     teacher = models.ForeignKey(Teacher, on_delete=models.CASCADE)
     teacher_event_id = models.CharField(null=True, blank=True)
     notified = models.BooleanField(default=False)
+    
     def generate_unique_code(self, length=8):
         characters = string.ascii_letters + string.digits
         code = ''.join(random.choice(characters) for _ in range(length))
@@ -127,3 +194,26 @@ class GuestLesson(models.Model):
         if self.code is None or self.code == "":
             self.code = self._generate_unique_code(12)
         super(GuestLesson, self).save(*args, **kwargs)
+
+    def generate_description(self):
+        """
+        Generates a detailed description string for the lesson.
+        """
+        mode = "Online" if self.online else "In-Person"
+        datetime_formatted = self.datetime.strftime("%Y-%m-%d %H:%M %Z")
+
+        # Handle optional fields gracefully
+        email_display = self.email if self.email else "N/A"
+        notes_display = self.notes if self.notes else "N/A"
+
+        description = (
+            f"Lesson Details:\n\n"
+            f"Name: {self.name}\n"
+            f"Email: {email_display}\n"
+            f"Date & Time: {datetime_formatted}\n"
+            f"Duration: {self.duration} minutes\n"
+            f"Mode: {mode}\n"
+            f"Notes: {notes_display}\n"
+        )
+
+        return description

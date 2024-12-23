@@ -21,7 +21,7 @@ from django.template.loader import render_to_string
 
 gmt7 = pytz.timezone('Asia/Bangkok')
 fernet = Fernet(settings.FERNET_KEY)
-_timezone =  timezone.get_current_timezone()
+_timezone =  timezone.get_current_timezone().__str__()
 base_datetime = datetime(1999,1, 1)
 
 def delete_google_calendar_event(user, event_id):
@@ -34,12 +34,14 @@ def delete_google_calendar_event(user, event_id):
     # Decrypt the credentials
     try:
         token = decrypt_token(credentials_data['token'])
+        refresh_token = decrypt_token(credentials_data['refresh_token'])
     except Exception as e:
         return 
 
     # Rebuild the credentials object
     credentials = Credentials(
         token=token,
+        refresh_token=refresh_token,
         token_uri=credentials_data['token_uri'],
         client_id=credentials_data['client_id'],
         client_secret=credentials_data['client_secret'],
@@ -67,8 +69,8 @@ def create_calendar_event(user, summary, description, start, end):
         token = decrypt_token(credentials_data['token'])
         refresh_token = decrypt_token(credentials_data['refresh_token'])
     except Exception as e:
+        print(f"Error Failed to Decrypt : {e}")
         return 
-
     # Rebuild the credentials object
     credentials = Credentials(
         token=token,
@@ -105,6 +107,7 @@ def create_calendar_event(user, summary, description, start, end):
         created_event = service.events().insert(calendarId=user.google_calendar_id, body=event).execute()
         return created_event["id"]
     except Exception as e:
+        print(f"Error Failed to Insert : {e}")
         pass 
         
 
@@ -132,7 +135,6 @@ def generate_unique_code(length=8):
     characters = string.ascii_letters + string.digits
     code = ''.join(random.choice(characters) for _ in range(length))
     return code
-
 
 def merge_schedule(validated_data, unavailables):
     new_start = validated_data['start']

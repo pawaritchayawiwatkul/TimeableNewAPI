@@ -37,7 +37,7 @@ class GoogleCalendarInitView(APIView):
 
         # Generate authorization URL
         authorization_url, _ = flow.authorization_url(
-            access_type="online",
+            access_type="offline",
             prompt="consent",
             state=encrypted_state  # The plain state is passed as part of the OAuth URL
         )
@@ -85,12 +85,19 @@ class GoogleCalendarCallbackView(APIView):
         credentials = flow.credentials
         encrypted_token = encrypt_token(credentials.token)
 
+        # Check if a refresh_token exists
+        if credentials.refresh_token:
+            encrypted_refresh_token = encrypt_token(credentials.refresh_token)
+        else:
+            encrypted_refresh_token = None  # Handle cases where refresh_token might not be present
+
         user.google_credentials = {
             'token': encrypted_token,
+            'refresh_token': encrypted_refresh_token,  # Include the refresh_token
             'token_uri': credentials.token_uri,
             'client_id': credentials.client_id,
             'client_secret': credentials.client_secret,
-            'scopes': credentials.scopes,
+            'scopes': credentials.scopes
         }
 
         credentials = Credentials(
@@ -101,6 +108,7 @@ class GoogleCalendarCallbackView(APIView):
             client_secret=credentials.client_secret,
             scopes=credentials.scopes
         )
+        
         service = build("calendar", "v3", credentials=credentials)
         calendar_body = {
             "summary": "Timeable - Schedule",

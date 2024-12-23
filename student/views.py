@@ -112,23 +112,25 @@ class CourseViewset(ViewSet):
         except ValueError:
             return Response({"error_message": ["Invalid Date Format"]}, status=400)
         day_number = date_obj.weekday() + 1
-        regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
-            Prefetch(
-                "teacher__unavailable_reg",
-                queryset=UnavailableTimeRegular.objects.filter(
-                    day=str(day_number)
-                ).only("start", "stop"),
-                to_attr="regular"
-            ),
-            Prefetch(
-                "teacher__unavailable_once",
-                queryset=UnavailableTimeOneTime.objects.filter(
-                    date=date_obj
-                ).only("start", "stop"),
-                to_attr="once"
-            ),
-        ).get(uuid=code)
-
+        try:
+            regis = CourseRegistration.objects.select_related('course', 'teacher__school').prefetch_related(
+                Prefetch(
+                    "teacher__unavailable_reg",
+                    queryset=UnavailableTimeRegular.objects.filter(
+                        day=str(day_number)
+                    ).only("start", "stop"),
+                    to_attr="regular"
+                ),
+                Prefetch(
+                    "teacher__unavailable_once",
+                    queryset=UnavailableTimeOneTime.objects.filter(
+                        date=date_obj
+                    ).only("start", "stop"),
+                    to_attr="once"
+                ),
+            ).get(uuid=code)
+        except CourseRegistration.DoesNotExist:
+            return Response({"error": "Can't Find Course Registration"}, status=400)
         previous_date = date_obj - timedelta(days=1)
         booked_lessons = Lesson.objects.filter(
             status__in=["CON", "PENTE", "PENST"],
@@ -187,12 +189,14 @@ class LessonViewset(ViewSet):
             lesson.registration.save()
         lesson.status = 'CAN'
         lesson.save()
-        
+
+        gmt_time = lesson.booked_datetime.astimezone(gmt7)
         send_notification(
             lesson.registration.teacher.user_id, 
             "Lesson Canceled", 
-            f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
+            f'{request.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.'
             )
+        
         if lesson.student_event_id:
             delete_google_calendar_event(request.user, lesson.student_event_id)
         if lesson.teacher_event_id:
@@ -207,21 +211,30 @@ class LessonViewset(ViewSet):
             return Response({'failed': "No Lesson matches the given query."}, status=200)
         lesson.status = 'CON'
 
+
         finished = lesson.booked_datetime + timedelta(minutes=lesson.registration.course.duration)
         start_time_str = lesson.booked_datetime.strftime("%Y-%m-%dT%H:%M:%S%z")
         end_time_str = finished.strftime("%Y-%m-%dT%H:%M:%S%z")
-        t_event_id = create_calendar_event(lesson.registration.teacher.user, summary="Confirmed Lesson ( Teacher | Course )", description="{}", start=start_time_str, end=end_time_str)
-        s_event_id = create_calendar_event(request.user, summary="Confirmed Lesson ( Student | Course )", description="{}", start=start_time_str, end=end_time_str)
+        gmt_time = lesson.booked_datetime.astimezone(gmt7)
+
+        s_title = lesson.generate_title(is_teacher=False)
+        t_title = lesson.generate_title(is_teacher=True)
+        t_description = lesson.generate_description(is_teacher=True)
+        s_description = lesson.generate_description(is_teacher=False)
+        s_event_id = create_calendar_event(request.user, summary=s_title, description=s_description, start=start_time_str, end=end_time_str)
+        t_event_id = create_calendar_event(lesson.registration.teacher.user, summary=t_title, description=t_description, start=start_time_str, end=end_time_str)
+
         if s_event_id:
             lesson.student_event_id = s_event_id
         if t_event_id:
             lesson.teacher_event_id = t_event_id
         lesson.save()
         
+        gmt_time = lesson.booked_datetime.astimezone(gmt7)
         send_notification(
             lesson.registration.teacher.user_id, 
             "Lesson Confirmed", 
-            f'{request.user.first_name} on {lesson.booked_datetime.strftime("%Y-%m-%d")} at {lesson.booked_datetime.strftime("%H:%M")}.'
+            f'{request.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.'
             )
         
         return Response({'success': 'Lesson confirmed successfully.'}, status=200)
@@ -375,10 +388,11 @@ class LessonViewset(ViewSet):
                 return Response({"error": "Invalid Time s"}, status=400)
             obj = ser.create(validated_data=ser.validated_data)
 
+            gmt_time = obj.booked_datetime.astimezone(gmt7)
             send_notification(
                 regis.teacher.user_id, 
                 "Lesson Requested!", 
-                f'{request.user.first_name} on {obj.booked_datetime.strftime("%Y-%m-%d")} at {obj.booked_datetime.strftime("%H:%M")}.'
+                f'{request.user.first_name} on {gmt_time.strftime("%Y-%m-%d")} at {gmt_time.strftime("%H:%M")}.'
                 )
             return Response({"booked_date": obj.booked_datetime}, status=200)
         else:
@@ -420,14 +434,15 @@ class GuestViewset(ViewSet):
             duration = ser.validated_data.get("duration")
             mode = "Online" if ser.validated_data.get("online", False) else "Onsite"  
 
+            previous_date = booked_date - timedelta(days=1)
             booked_lessons = Lesson.objects.filter(
                 status__in=["CON", "PENTE", "PENST"],
                 registration__teacher=teacher,
-                booked_datetime__date=booked_date
+                booked_datetime__date__in=[previous_date, booked_date]
             )
             guest_lessons = GuestLesson.objects.filter(
                 teacher=teacher,
-                datetime__date=booked_date
+                datetime__date__in=[previous_date, booked_date]
             )
             unavailables = teacher.regular + teacher.once
             start = teacher.school.start
@@ -450,7 +465,7 @@ class GuestViewset(ViewSet):
                     mode=mode,
                     student_email=email,
                 )
-            send_notification(teacher.user_id, "Lesson Requested!", f'{name} on {booked_date.strftime("%Y-%m-%d")} at {booked_date.strftime("%H:%M")}.')
+            send_notification(teacher.user_id, "Lesson Requested!", f'{name} on {localized_datetime.strftime("%Y-%m-%d")} at {localized_datetime.strftime("%H:%M")}.')
 
             return Response({"booked_date": booked_date}, status=200)
         else:
@@ -507,16 +522,17 @@ class GuestViewset(ViewSet):
             day_number = current_date.weekday() + 1
 
             # Filter booked lessons and guest lessons for the current date
-            booked_lessons = Lesson.objects.select_related("registration__course").filter(
+            previous_date = current_date - timedelta(days=1)
+            booked_lessons = Lesson.objects.filter(
                 status__in=["CON", "PENTE", "PENST"],
                 registration__teacher=teacher,
-                booked_datetime__date=current_date
+                booked_datetime__date__in=[previous_date, current_date]
             )
             guest_lessons = GuestLesson.objects.filter(
                 teacher=teacher,
-                datetime__date=current_date
+                datetime__date__in=[previous_date, current_date]
             )
-
+            
             # Get regular and one-time unavailabilities for the current day
             unavailables = [
                 *[u for u in teacher.regular if u.day == str(day_number)],

@@ -142,7 +142,7 @@ function updateDayTimeslotContent(dayTimeslotElement, timesForDay, date) {
     timesForDay.forEach(time => {
         const timeButton = document.createElement('button');
         timeButton.textContent = convertTo12HourFormat(time['start']);
-        timeButton.value = time;
+        timeButton.value = time['start'];
 
         // Add click listener for the button
         timeButton.addEventListener('click', () => {
